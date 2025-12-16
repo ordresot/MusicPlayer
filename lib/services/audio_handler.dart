@@ -107,6 +107,11 @@ class CyberAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
   @override
   Future<void> skipToPrevious() => _player.seekToPrevious();
 
+  @override
+  Future<void> skipToQueueItem(int index) async {
+    await _player.seek(null, index: index);
+  }
+
   // Load a playlist
   Future<void> updateQueue(List<MediaItem> newQueue, {int index = 0}) async {
     // Convert MediaItems to AudioSources

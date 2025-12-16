@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/player_provider.dart';
 import '../theme/cyber_theme.dart';
+import '../screens/player_screen.dart';
 
 class DynamicIslandPlayer extends StatelessWidget {
   const DynamicIslandPlayer({super.key});
@@ -20,10 +21,25 @@ class DynamicIslandPlayer extends StatelessWidget {
           // Compromise: Floating Pill at bottom center (Spotify-like usage, island-like shape).
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Container(
-              height: 70,
-              width: MediaQuery.of(context).size.width > 600 ? 500 : double.infinity,
-              decoration: BoxDecoration(
+            child: GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => const PlayerScreen(),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      const begin = Offset(0.0, 1.0);
+                      const end = Offset.zero;
+                      const curve = Curves.easeOutExpo;
+                      var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                      return SlideTransition(position: animation.drive(tween), child: child);
+                    },
+                  ),
+                );
+              },
+              child: Container(
+                height: 70,
+                width: MediaQuery.of(context).size.width > 600 ? 500 : double.infinity,
+                decoration: BoxDecoration(
                 color: CyberTheme.surface.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(35), // Pill shape
                 border: Border.all(color: CyberTheme.primary.withValues(alpha: 0.3)),
@@ -111,9 +127,10 @@ class DynamicIslandPlayer extends StatelessWidget {
             ).animate()
              .slideY(begin: 1.0, end: 0.0, curve: Curves.easeOutBack, duration: 600.ms)
              .fadeIn(),
-          ),
-        );
-      },
-    );
+          ), // GestureDetector
+        ), // Padding
+      ); // Align
+    }, // Consumer builder
+    ); // Consumer
   }
 }
