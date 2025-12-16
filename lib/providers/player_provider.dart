@@ -3,7 +3,6 @@ import 'package:audio_service/audio_service.dart';
 import '../services/audio_handler.dart';
 import '../services/db_service.dart';
 import '../services/file_scanner.dart';
-import '../theme/cyber_theme.dart';
 
 class PlayerProvider extends ChangeNotifier {
   final CyberAudioHandler _audioHandler = CyberAudioHandler();

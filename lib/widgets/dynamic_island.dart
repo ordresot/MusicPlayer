@@ -24,12 +24,12 @@ class DynamicIslandPlayer extends StatelessWidget {
               height: 70,
               width: MediaQuery.of(context).size.width > 600 ? 500 : double.infinity,
               decoration: BoxDecoration(
-                color: CyberTheme.surface.withOpacity(0.9),
+                color: CyberTheme.surface.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(35), // Pill shape
-                border: Border.all(color: CyberTheme.primary.withOpacity(0.3)),
+                border: Border.all(color: CyberTheme.primary.withValues(alpha: 0.3)),
                 boxShadow: [
                   BoxShadow(
-                    color: CyberTheme.primary.withOpacity(0.1),
+                    color: CyberTheme.primary.withValues(alpha: 0.1),
                     blurRadius: 20,
                     spreadRadius: 2,
                   )
