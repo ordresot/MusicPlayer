@@ -32,9 +32,7 @@ class DbService {
   }
 
   Future<void> saveTracks(List<TrackModel> tracks) async {
-    final map = {for (var t in tracks) t.path: t};
-    // Using path as loose key or just addAll.
-    // To match previous bulk save:
+    // Unused map removed
     await _libraryBox.addAll(tracks);
   }
 

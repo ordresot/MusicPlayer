@@ -43,16 +43,16 @@ class PlayerScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
-                    BoxShadow(color: CyberTheme.primary.withOpacity(0.3), blurRadius: 40, spreadRadius: -5),
-                    BoxShadow(color: CyberTheme.secondary.withOpacity(0.2), blurRadius: 20, offset: Offset(5, 5)),
+                    BoxShadow(color: CyberTheme.primary.withValues(alpha: 0.3), blurRadius: 40, spreadRadius: -5),
+                    BoxShadow(color: CyberTheme.secondary.withValues(alpha: 0.2), blurRadius: 20, offset: Offset(5, 5)),
                   ],
-                  border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Container(color: Colors.grey[900], child: Icon(Icons.music_note, size: 100, color: Colors.white24)),
                 ),
-              ).animate().shimmer(duration: 3.seconds, delay: 1.seconds, color: CyberTheme.primary.withOpacity(0.1)),
+              ).animate().shimmer(duration: 3.seconds, delay: 1.seconds, color: CyberTheme.primary.withValues(alpha: 0.1)),
             ),
             
             const Spacer(flex: 1),
@@ -107,7 +107,7 @@ class PlayerScreen extends StatelessWidget {
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: CyberTheme.primary.withOpacity(0.5), blurRadius: 20)],
+                    boxShadow: [BoxShadow(color: CyberTheme.primary.withValues(alpha: 0.5), blurRadius: 20)],
                     gradient: LinearGradient(colors: [CyberTheme.primary, CyberTheme.secondary])
                   ),
                   child: Icon(Icons.pause, color: Colors.black, size: 40),

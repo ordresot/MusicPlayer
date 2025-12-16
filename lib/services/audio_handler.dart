@@ -1,8 +1,20 @@
-import 'package:audio_service/audio_service.dart';
-import 'package:just_audio/just_audio.dart';
+late AudioHandler audioHandler;
+
+Future<void> initAudioService() async {
+  audioHandler = await AudioService.init(
+    builder: () => CyberAudioHandler(),
+    config: const AudioServiceConfig(
+      androidNotificationChannelId: 'com.example.cyber_music_player.channel.audio',
+      androidNotificationChannelName: 'Cyber Music Playback',
+      androidNotificationOngoing: true,
+      androidNotificationIcon: 'mipmap/ic_launcher',
+    ),
+  );
+}
 
 class CyberAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
-  final _player = AudioPlayer();
+  final _player = AudioPlayer(); // Define player here
+
 
   CyberAudioHandler() {
     _init();

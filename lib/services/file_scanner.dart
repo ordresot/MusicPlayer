@@ -31,7 +31,7 @@ class FileScannerService {
         }
       }
     } catch (e) {
-      print("Scan Error: $e");
+      // debugPrint("Scan Error: $e");
     }
     return audioFiles;
   }

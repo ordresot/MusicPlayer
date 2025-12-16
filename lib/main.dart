@@ -6,9 +6,14 @@ import 'dart:io'; // Added for Platform check
 import 'theme/cyber_theme.dart';
 import 'providers/player_provider.dart';
 import 'screens/home_screen.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'widgets/system_dynamic_island.dart';
+import 'services/audio_handler.dart'; // Import the handler
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initAudioService(); // Initialize Singleton Audio Handler
+
   
   // Desktop Window Management
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -33,6 +38,18 @@ void main() async {
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
       ],
       child: const CyberMusicApp(),
+    ),
+  );
+}
+
+// Overlay Entry Point
+@pragma("vm:entry-point")
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: const SystemDynamicIsland(),
     ),
   );
 }

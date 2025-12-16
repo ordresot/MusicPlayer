@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart'; // Added for overlay
 import '../services/audio_handler.dart';
 import '../services/db_service.dart';
 import '../services/file_scanner.dart';
 
 class PlayerProvider extends ChangeNotifier {
-  final CyberAudioHandler _audioHandler = CyberAudioHandler();
+  // Use the global singleton initialized in main.dart
+  final AudioHandler _audioHandler = audioHandler; 
   final DbService _dbService = DbService();
   final FileScannerService _scanner = FileScannerService();
 
@@ -105,6 +107,18 @@ class PlayerProvider extends ChangeNotifier {
 
     await _audioHandler.updateQueue(queue, index: index);
     await _audioHandler.play();
+    
+    // Update Overlay
+    if (Platform.isAndroid) {
+       try {
+         await FlutterOverlayWindow.shareData({
+            "title": track.title,
+            "isPlaying": true
+         });
+       } catch (e) {
+         print("Overlay error: $e");
+       }
+    }
   }
 
   Future<void> togglePlay() async {

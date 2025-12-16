@@ -1,11 +1,74 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../widgets/dynamic_island.dart';
 import '../providers/player_provider.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _requestOverlayPermission();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Show overlay when app goes to background (paused/inactive)
+    if (Platform.isAndroid) {
+      if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) {
+         // Show overlay if playing
+         final provider = Provider.of<PlayerProvider>(context, listen: false);
+         if (provider.isPlaying) {
+            await FlutterOverlayWindow.showOverlay(
+              enableDrag: true,
+              overlayTitle: "Cyber Player",
+              overlayContent: "Dynamic Island",
+              flag: OverlayFlag.defaultFlag,
+              visibility: NotificationVisibility.visibilitySecret,
+              positionGravity: PositionGravity.auto,
+              height: 100,
+              width: WindowSize.matchParent
+            );
+            
+            // Sync current state immediately
+            if (provider.currentTrack != null) {
+              await FlutterOverlayWindow.shareData({
+                "title": provider.currentTrack!.title,
+                "isPlaying": true
+              });
+            }
+         }
+      } else if (state == AppLifecycleState.resumed) {
+        FlutterOverlayWindow.closeOverlay();
+      }
+    }
+  }
+
+  Future<void> _requestOverlayPermission() async {
+    if (Platform.isAndroid) {
+      final bool status = await FlutterOverlayWindow.isPermissionGranted();
+      if (!status) {
+        await FlutterOverlayWindow.requestPermission();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,19 +78,20 @@ class HomeScreen extends StatelessWidget {
           Column(
             children: [
               // Windows Title Bar Drag Area
-              GestureDetector(
-                onPanStart: (details) => windowManager.startDragging(),
-                child: Container(
-                  height: 40,
-                  color: Colors.black.withOpacity(0.5),
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => windowManager.close(),
+              if (Platform.isWindows)
+                GestureDetector(
+                  onPanStart: (details) => windowManager.startDragging(),
+                  child: Container(
+                    height: 40,
+                    color: Colors.black.withValues(alpha: 0.5),
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => windowManager.close(),
+                    ),
                   ),
                 ),
-              ),
               Expanded(
                 child: Consumer<PlayerProvider>(
                   builder: (context, provider, _) {
@@ -61,13 +125,6 @@ class HomeScreen extends StatelessWidget {
               backgroundColor: Colors.cyan,
               child: const Icon(Icons.folder_open),
               onPressed: () {
-                 // Trigger scan
-                 // On Windows we usually show dialog.
-                 // For now, hardcode a test path or use generic scan
-                 // We will ask provider to scan.
-                 // Ideally we use file_picker package here to get path.
-                 // Let's assume generic android scan for now, or add file_picker later.
-                 // Passing empty string triggers android scan in our logic.
                  Provider.of<PlayerProvider>(context, listen: false).scanFiles("");
               },
             ),

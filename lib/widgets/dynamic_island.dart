@@ -45,7 +45,7 @@ class DynamicIslandPlayer extends StatelessWidget {
                       backgroundColor: Colors.black,
                       child: Icon(Icons.music_note, color: CyberTheme.primary),
                     ).animate(target: provider.isPlaying ? 1 : 0)
-                    .shimmer(duration: 2.seconds, color: CyberTheme.primary.withOpacity(0.5)),
+                    .shimmer(duration: 2.seconds, color: CyberTheme.primary.withValues(alpha: 0.5)),
                   ),
                   
                   const SizedBox(width: 12),
@@ -89,7 +89,7 @@ class DynamicIslandPlayer extends StatelessWidget {
                       shape: BoxShape.circle,
                       color: CyberTheme.primary,
                       boxShadow: [
-                         BoxShadow(color: CyberTheme.primary.withOpacity(0.4), blurRadius: 10)
+                         BoxShadow(color: CyberTheme.primary.withValues(alpha: 0.4), blurRadius: 10)
                       ]
                     ),
                     child: IconButton(
