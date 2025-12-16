@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
+import '../widgets/dynamic_island.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -7,30 +7,45 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          // Windows Title Bar Drag Area
-          GestureDetector(
-            onPanStart: (details) => windowManager.startDragging(),
-            child: Container(
-              height: 40,
-              color: Colors.black.withOpacity(0.5),
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: IconButton(
-                icon: const Icon(Icons.close, size: 20),
-                onPressed: () => windowManager.close(),
+          Column(
+            children: [
+              // Windows Title Bar Drag Area
+              GestureDetector(
+                onPanStart: (details) => windowManager.startDragging(),
+                child: Container(
+                  height: 40,
+                  color: Colors.black.withOpacity(0.5),
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => windowManager.close(),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const Expanded(
-            child: Center(
-              child: Text(
-                'CYBER PLAYER SYSTEM ONLINE',
-                style: TextStyle(fontSize: 24, letterSpacing: 2),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 100), // Space for island
+                  itemCount: 20,
+                  itemBuilder: (context, index) {
+                    return ListTile(
+                      leading: Icon(Icons.music_note, color: Colors.white54),
+                      title: Text("Track #$index", style: TextStyle(color: Colors.white)),
+                      subtitle: Text("Artist Name", style: TextStyle(color: Colors.white38)),
+                      onTap: () {
+                         // TODO: Play track
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
+            ],
           ),
+          
+          // Floating Player (Dynamic Island)
+          const DynamicIslandPlayer(),
         ],
       ),
     );
