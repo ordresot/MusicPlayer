@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:audio_service/audio_service.dart';
 import '../services/audio_handler.dart';
@@ -48,21 +49,19 @@ class PlayerProvider extends ChangeNotifier {
       // 1. Scan
       // For Windows: rootPath is passed. For Android: we trigger permission scan.
       // We'll normalize this.
+      // 1. Scan
       List<String> paths = [];
-      if (rootPath.isEmpty) {
-         // Android auto-scan or generic
-         // In real app, we'd separate Android Mediestore vs Windows file scan logic better.
-         // For now, let's assume if rootPath is empty, we try generic scan (Android).
-         final androidSongs = await _scanner.scanAndroid();
-         // Convert android songs to paths/db models... (omitted deep mapping for brevity)
-         // Simplified:
-         for (var s in androidSongs) {
-           // OnAudioQuery returns IDs/URIs for Android 10+, paths for older.
-           // We'll just grab data path if available.
-           if (s.data.isNotEmpty) paths.add(s.data);
+      String scanPath = rootPath;
+      
+      if (Platform.isAndroid && scanPath.isEmpty) {
+         // Default to Music folder if no path provided
+         if (await _scanner.requestPermissions()) {
+            scanPath = _scanner.androidMusicPath;
          }
-      } else {
-         paths = await _scanner.scanWindows(rootPath);
+      }
+
+      if (scanPath.isNotEmpty) {
+         paths = await _scanner.scanDirectory(scanPath);
       }
 
       // 2. Clear old DB (optional, or just append)
