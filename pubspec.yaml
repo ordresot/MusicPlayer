@@ -44,6 +44,7 @@ dependencies:
   window_manager: ^0.5.1
   google_fonts: ^6.3.3
   flutter_animate: ^4.5.2
+  on_audio_query: ^2.9.0
 
 dev_dependencies:
   flutter_test:

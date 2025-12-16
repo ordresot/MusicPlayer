@@ -29,7 +29,7 @@ class CyberTheme {
           color: primary,
           fontWeight: FontWeight.bold,
           shadows: [
-             Shadow(color: primary.withOpacity(0.5), blurRadius: 10),
+             Shadow(color: primary.withValues(alpha: 0.5), blurRadius: 10),
           ],
         ),
         displayMedium: GoogleFonts.orbitron(color: Colors.white),
@@ -41,7 +41,7 @@ class CyberTheme {
         activeTrackColor: primary,
         inactiveTrackColor: surface,
         thumbColor: Colors.white,
-        overlayColor: primary.withOpacity(0.2),
+        overlayColor: primary.withValues(alpha: 0.2),
         trackHeight: 2,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       ),
@@ -49,7 +49,7 @@ class CyberTheme {
         color: surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(4), // Sharp edges for cyberpunk
-          side: BorderSide(color: Colors.white.withOpacity(0.1)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
     );

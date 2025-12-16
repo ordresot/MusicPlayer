@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../theme/cyber_theme.dart';
-import '../widgets/dynamic_island.dart';
 
 class PlayerScreen extends StatelessWidget {
   const PlayerScreen({super.key});
@@ -112,7 +111,12 @@ class PlayerScreen extends StatelessWidget {
                     gradient: LinearGradient(colors: [CyberTheme.primary, CyberTheme.secondary])
                   ),
                   child: Icon(Icons.pause, color: Colors.black, size: 40),
-                ).animate(onPlay: (c) => c.repeat()).pulse(duration: 2.seconds),
+                ).animate(onPlay: (c) => c.repeat(reverse: true))
+                 .scale(end: const Offset(1.1, 1.1), duration: 1.seconds)
+                 .boxShadow(
+                    end: BoxShadow(color: CyberTheme.primary.withValues(alpha: 0.8), blurRadius: 30),
+                    duration: 1.seconds,
+                 ),
                 IconButton(icon: Icon(Icons.skip_next, size: 40), onPressed: () {}),
                 IconButton(icon: Icon(Icons.repeat, color: Colors.white54), onPressed: () {}),
               ],

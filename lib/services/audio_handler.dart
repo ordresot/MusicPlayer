@@ -97,6 +97,8 @@ class CyberAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
     }).toList();
 
     // Define shuffle order (simple sequential for now)
+    // Use setAudioSource with a list if available, or ignore deprecation for now as API might be version specific
+    // ignore: deprecated_member_use
     await _player.setAudioSource(
       ConcatenatingAudioSource(children: audioSources),
       initialIndex: index,
