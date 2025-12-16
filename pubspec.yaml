@@ -48,6 +48,7 @@ dependencies:
   flutter_overlay_window: ^0.5.0
   audio_session: ^0.2.2
   rxdart: ^0.28.0
+  metadata_god: ^1.1.0
 
 dev_dependencies:
   flutter_test:
