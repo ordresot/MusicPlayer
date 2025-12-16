@@ -1,3 +1,8 @@
+import 'package:audio_service/audio_service.dart';
+import 'package:just_audio/just_audio.dart';
+
+import 'package:audio_session/audio_session.dart';
+
 late AudioHandler audioHandler;
 
 Future<void> initAudioService() async {
@@ -21,6 +26,10 @@ class CyberAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
   }
 
   Future<void> _init() async {
+    // Configure session for background playback
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+
     // Broadcast playback state changes
     _player.playbackEventStream.listen(_broadcastState);
     

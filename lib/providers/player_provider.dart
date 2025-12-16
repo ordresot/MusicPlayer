@@ -105,7 +105,8 @@ class PlayerProvider extends ChangeNotifier {
       artUri: null, // TODO: Load artwork
     )).toList();
 
-    await _audioHandler.updateQueue(queue, index: index);
+    await _audioHandler.updateQueue(queue);
+    await _audioHandler.skipToQueueItem(index);
     await _audioHandler.play();
     
     // Update Overlay

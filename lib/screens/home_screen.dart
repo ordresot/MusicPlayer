@@ -30,10 +30,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _handleLifecycleChange(state);
+  }
+
+  Future<void> _handleLifecycleChange(AppLifecycleState state) async {
     // Show overlay when app goes to background (paused/inactive)
     if (Platform.isAndroid) {
       if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) {
          // Show overlay if playing
+         if (!mounted) return;
          final provider = Provider.of<PlayerProvider>(context, listen: false);
          if (provider.isPlaying) {
             await FlutterOverlayWindow.showOverlay(
@@ -56,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             }
          }
       } else if (state == AppLifecycleState.resumed) {
-        FlutterOverlayWindow.closeOverlay();
+        await FlutterOverlayWindow.closeOverlay();
       }
     }
   }
