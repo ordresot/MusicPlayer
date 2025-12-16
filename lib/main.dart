@@ -2,11 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
-import 'dart:io'; // Added for Platform check
 import 'theme/cyber_theme.dart';
 import 'providers/player_provider.dart';
 import 'screens/home_screen.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'widgets/system_dynamic_island.dart';
 import 'services/audio_handler.dart'; // Import the handler
 

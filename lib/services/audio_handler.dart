@@ -52,10 +52,9 @@ class CyberAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
     _player.sequenceStateStream.listen((sequenceState) {
       if (sequenceState == null) return;
       final currentItem = sequenceState.currentSource;
-      if (currentItem == null) return;
       // Map tag to MediaItem (we will store MediaItem in tag)
-      if (currentItem.tag is MediaItem) {
-        mediaItem.add(currentItem.tag as MediaItem);
+      if (currentItem?.tag is MediaItem) { // use ?. just in case, or unsafe
+        mediaItem.add(currentItem!.tag as MediaItem);
       }
     });
   }

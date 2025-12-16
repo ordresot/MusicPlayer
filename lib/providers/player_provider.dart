@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart'; // Added for overlay
-import 'package:flutter_media_metadata/flutter_media_metadata.dart';
+import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import '../services/audio_handler.dart';
 import '../services/db_service.dart';
 import '../services/file_scanner.dart';
@@ -81,12 +81,12 @@ class PlayerProvider extends ChangeNotifier {
         
         // Basic file metadata
         try {
-          final metadata = await MetadataRetriever.fromFile(File(p));
-          if (metadata.trackName != null) title = metadata.trackName!;
-          if (metadata.trackArtistNames != null && metadata.trackArtistNames!.isNotEmpty) {
-             artist = metadata.trackArtistNames!.first;
-          }
-          if (metadata.albumName != null) album = metadata.albumName!;
+          final metadata = await readMetadata(File(p), getImage: false); // Top-level function
+          title = metadata.title ?? name;
+          if (title.trim().isEmpty) title = name;
+          
+          artist = metadata.artist ?? "Unknown Artist";
+          album = metadata.album ?? "Unknown Album";
         } catch (e) {
           // Metadata extraction failed, stick to defaults
         }
