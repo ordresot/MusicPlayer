@@ -12,7 +12,7 @@ Future<void> initAudioService() async {
       androidNotificationChannelId: 'com.example.cyber_music_player.channel.audio',
       androidNotificationChannelName: 'Cyber Music Playback',
       androidNotificationOngoing: true,
-      androidNotificationIcon: 'mipmap/ic_launcher',
+      androidNotificationIcon: 'ic_launcher',
     ),
   );
 }
