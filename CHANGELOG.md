@@ -1,0 +1,28 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [v0.8] - 2025-12-17
+
+### 🚀 New Features
+- **Dynamic Island Overlay**: 
+  - Added a system-wide floating "pill" player overlay (Spotify-like) that appears when the app is minimized.
+  - Interactive "Tap to Expand" animation opening the full player.
+  - Controls for Play/Pause directly from the overlay.
+- **Full Screen Player**:
+  - Completely revamped Player Screen with real-time data.
+  - Added **Seek Bar** with live position and duration updates.
+  - Added **Shuffle** and **Repeat** loop modes.
+  - Navigation connected to the Dynamic Island.
+
+### 🐛 Bug Fixes
+- **Startup Crash**: Fixed `PlatformException` by migrating `MainActivity` to extend `AudioServiceActivity`.
+- **Background Playback**: 
+  - Configured `AudioSession` to `AudioSessionConfiguration.music()` to prevent Android from killing the app in the background.
+  - Fixed "Unknown" notification icon issue causing service termination.
+- **Queue Navigation**: Fixed a critical bug where only the first song would play; implemented `skipToQueueItem` in the Audio Handler.
+
+### ⚙️ Technical
+- **Permissions**: Added `POST_NOTIFICATIONS` (Android 13+) and `BLUETOOTH_CONNECT` (Android 12+) support.
+- **Dependencies**: Added `rxdart` for stream handling and `metadata_god` (in progress) for ID3 tag reading.
+- **Refactoring**: Cleaned up `PlayerProvider` and `AudioHandler` communication.

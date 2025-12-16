@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart'; // Added for overlay
+import 'package:flutter_media_metadata/flutter_media_metadata.dart';
 import '../services/audio_handler.dart';
 import '../services/db_service.dart';
 import '../services/file_scanner.dart';
@@ -70,15 +71,34 @@ class PlayerProvider extends ChangeNotifier {
       await _dbService.clearLibrary();
 
       // 3. Convert to Models
-      List<TrackModel> newTracks = paths.map((p) {
+      List<TrackModel> newTracks = [];
+      
+      for (var p in paths) {
         final name = p.split(RegExp(r'[/\\]')).last;
-        return TrackModel()
+        String title = name;
+        String artist = "Unknown Artist";
+        String album = "Unknown Album";
+        
+        // Basic file metadata
+        try {
+          final metadata = await MetadataRetriever.fromFile(File(p));
+          if (metadata.trackName != null) title = metadata.trackName!;
+          if (metadata.trackArtistNames != null && metadata.trackArtistNames!.isNotEmpty) {
+             artist = metadata.trackArtistNames!.first;
+          }
+          if (metadata.albumName != null) album = metadata.albumName!;
+        } catch (e) {
+          // Metadata extraction failed, stick to defaults
+        }
+        
+        newTracks.add(TrackModel()
           ..path = p
-          ..title = name
-          ..artist = "Unknown"
-          ..album = "Unknown"
-          ..duration = 0; // Metadata extraction would go here (e.g. using `audiotags` input equivalent in Dart)
-      }).toList();
+          ..title = title
+          ..artist = artist
+          ..album = album
+          ..duration = 0 
+        );
+      }
 
       // 4. Save
       await _dbService.saveTracks(newTracks);
