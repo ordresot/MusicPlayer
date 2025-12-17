@@ -6,13 +6,14 @@ Designed for performance and aesthetics, running natively on **Android** and **W
 ## ✨ Features
 
 *   **Offline Playback**: Plays local audio files (MP3, FLAC, WAV, M4A) directly from your device.
+*   **High-Performance Scanning**: Uses background **Isolates** (`compute`) to process thousands of files without UI lag.
+*   **Smart Metadata**: Auto-extracts Artist/Title from tags, with a smart fallback parser for filenames (fixing "Unknown Artist" issues).
 *   **Cyberpunk Aesthetics**: Custom-built Dark Mode with Neon Accents (Cyan/Purple), Glassmorphism, and futuristic typography.
-*   **Dynamic Island Player**: A floating "pill" player (Spotify-style) that animates and follows you across screens.
-*   **Efficient Database**: Uses **Hive** (NoSQL) for instant library loading (no need to rescan every startup).
-*   **Background Playback**: Full support for background audio and notification controls via `audio_service`.
+*   **Dynamic Island Player**: A floating "capsule" player that stays on top of other apps (Android Overlay).
+*   **Background Playback**: Architecture designed for resilience ("Stop-Proof" service) using `audio_service` + `WAKE_LOCK`.
 *   **Cross-Platform**:
-    *   **Android**: Auto-scans standard Music folders.
-    *   **Windows**: Drag-and-drop or select any folder to scan.
+    *   **Android**: Auto-scans standard Music folders + Dynamic Island.
+    *   **Windows**: Drag-and-drop support with custom windowing.
 
 ## 🛠️ Tech Stack
 
@@ -21,7 +22,7 @@ Designed for performance and aesthetics, running natively on **Android** and **W
 *   **Database**: `hive` (High-performance Key-Value store)
 *   **State Management**: `provider`
 *   **UI/Animations**: `flutter_animate`, `google_fonts` (Orbitron)
-*   **Window Management**: `window_manager` (Custom title bars on Desktop)
+*   **System Integration**: `flutter_overlay_window` (Dynamic Island), `window_manager` (Desktop)
 
 ## 🚀 Getting Started
 
@@ -68,8 +69,8 @@ Designed for performance and aesthetics, running natively on **Android** and **W
 - [x] Basic Playback & Cyberpunk UI
 - [x] Background Audio Support
 - [x] Hive Database Integration
-- [ ] Metadata Extraction (Artist, Title, Album Art)
-- [ ] Shuffle & Repeat Modes
+- [x] Metadata Extraction (Smart Fallback System)
+- [x] Shuffle & Repeat Modes
 - [ ] Smart Playlists
 
 ## 🤝 Contributing
