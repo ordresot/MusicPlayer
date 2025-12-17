@@ -58,7 +58,7 @@ class CyberMusicApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Cyber Music',
+      title: 'Void Player',
       debugShowCheckedModeBanner: false,
       theme: CyberTheme.theme,
       home: const HomeScreen(),

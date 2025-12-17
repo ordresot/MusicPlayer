@@ -43,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
          if (provider.isPlaying) {
             await FlutterOverlayWindow.showOverlay(
               enableDrag: true,
-              overlayTitle: "Cyber Player",
+              overlayTitle: "Void Player",
               overlayContent: "Dynamic Island",
               flag: OverlayFlag.defaultFlag,
               visibility: NotificationVisibility.visibilitySecret,

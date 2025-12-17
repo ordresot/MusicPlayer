@@ -11,7 +11,7 @@ class SystemDynamicIsland extends StatefulWidget {
 }
 
 class _SystemDynamicIslandState extends State<SystemDynamicIsland> {
-  String _songTitle = "Cyber Player";
+  String _songTitle = "Void Player";
   bool _isPlaying = false;
 
   @override
