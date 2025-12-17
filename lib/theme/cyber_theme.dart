@@ -18,7 +18,6 @@ class CyberTheme {
         primary: primary,
         secondary: secondary,
         surface: surface,
-        background: background,
         error: error,
         onPrimary: Colors.black,
         onSecondary: Colors.black,

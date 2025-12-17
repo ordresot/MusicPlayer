@@ -8,11 +8,13 @@ late AudioHandler audioHandler;
 Future<void> initAudioService() async {
   audioHandler = await AudioService.init(
     builder: () => CyberAudioHandler(),
-    config: const AudioServiceConfig(
+    config: AudioServiceConfig(
       androidNotificationChannelId: 'com.example.cyber_music_player.channel.audio',
       androidNotificationChannelName: 'Cyber Music Playback',
       androidNotificationOngoing: true,
       androidNotificationIcon: 'ic_launcher',
+      androidStopForegroundOnPause: false,
+      androidResumeOnClick: true,
     ),
   );
 }
@@ -50,11 +52,17 @@ class CyberAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
 
     // Broadcast current media item
     _player.sequenceStateStream.listen((sequenceState) {
-      if (sequenceState == null) return;
+      // warning: The operand can't be 'null' -> properly accessed
       final currentItem = sequenceState.currentSource;
       // Map tag to MediaItem (we will store MediaItem in tag)
-      if (currentItem?.tag is MediaItem) { // use ?. just in case, or unsafe
-        mediaItem.add(currentItem!.tag as MediaItem);
+      if (currentItem?.tag is MediaItem) { 
+        final tagItem = currentItem!.tag as MediaItem;
+        final realDuration = _player.duration;
+        if (realDuration != null && realDuration != Duration.zero) {
+          mediaItem.add(tagItem.copyWith(duration: realDuration));
+        } else {
+          mediaItem.add(tagItem);
+        }
       }
     });
   }
@@ -89,48 +97,62 @@ class CyberAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
   }
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() async {
+    try { await _player.play(); } catch (_) { }
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async {
+    try { await _player.pause(); } catch (_) { }
+  }
 
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) async {
+    try { await _player.seek(position); } catch (_) { }
+  }
 
   @override
-  Future<void> stop() => _player.stop();
+  Future<void> stop() async {
+    try { await _player.stop(); } catch (_) { }
+  }
 
   @override
-  Future<void> skipToNext() => _player.seekToNext();
+  Future<void> skipToNext() async {
+    try { await _player.seekToNext(); } catch (_) { }
+  }
 
   @override
-  Future<void> skipToPrevious() => _player.seekToPrevious();
+  Future<void> skipToPrevious() async {
+    try { await _player.seekToPrevious(); } catch (_) { }
+  }
 
   @override
   Future<void> skipToQueueItem(int index) async {
-    await _player.seek(null, index: index);
+    try { await _player.seek(null, index: index); } catch (_) { }
   }
 
   // Load a playlist
-  Future<void> updateQueue(List<MediaItem> newQueue, {int index = 0}) async {
-    // Convert MediaItems to AudioSources
-    final audioSources = newQueue.map((item) {
-      return AudioSource.uri(
-        Uri.parse(item.id),
-        tag: item, // Store MediaItem in tag for easy retrieval
-      );
-    }).toList();
+  @override
+  Future<void> updateQueue(List<MediaItem> queue) async {
+    try {
+      // Convert MediaItems to AudioSources
+      final audioSources = queue.map((item) {
+        return AudioSource.uri(
+          Uri.parse(item.id),
+          tag: item, // Store MediaItem in tag for easy retrieval
+        );
+      }).toList();
 
-    // Define shuffle order (simple sequential for now)
-    // Use setAudioSource with a list if available, or ignore deprecation for now as API might be version specific
-    // ignore: deprecated_member_use
-    await _player.setAudioSource(
-      ConcatenatingAudioSource(children: audioSources),
-      initialIndex: index,
-    );
-    
-    // Update queue in audio_service
-    queue.add(newQueue);
-    mediaItem.add(newQueue[index]);
+      // Define shuffle order (simple sequential for now)
+      await _player.setAudioSource(
+        // ignore: deprecated_member_use
+        ConcatenatingAudioSource(children: audioSources),
+        initialIndex: 0,
+      );
+      
+      // Update queue in audio_service
+      this.queue.add(queue);
+      mediaItem.add(queue[0]);
+    } catch (_) { }
   }
 }

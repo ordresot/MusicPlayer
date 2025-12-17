@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // For compute
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart'; // Added for overlay
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import '../services/audio_handler.dart';
 import '../services/db_service.dart';
@@ -15,6 +15,7 @@ class PlayerProvider extends ChangeNotifier {
 
   List<TrackModel> _library = [];
   bool _isLoading = false;
+  bool _isQueueSynced = false; // Prevents unnecessary queue reloads
 
   // Getters
   List<TrackModel> get library => _library;
@@ -33,10 +34,35 @@ class PlayerProvider extends ChangeNotifier {
     // Listen to audio handler changes
     _audioHandler.playbackState.listen((state) {
       notifyListeners();
+      _updateOverlayState(isPlaying: state.playing);
     });
+    
     _audioHandler.mediaItem.listen((item) {
       notifyListeners();
+      if (item != null) {
+        _updateOverlayTitle(item.title);
+      }
     });
+  }
+
+  Future<void> _updateOverlayTitle(String title) async {
+    if (Platform.isAndroid) {
+       try {
+         await FlutterOverlayWindow.shareData({"title": title});
+       } catch (e) {
+         // debugPrint("Overlay Check: $e");
+       }
+    }
+  }
+
+  Future<void> _updateOverlayState({required bool isPlaying}) async {
+    if (Platform.isAndroid) {
+       try {
+         await FlutterOverlayWindow.shareData({"isPlaying": isPlaying});
+       } catch (e) {
+         // debugPrint("Overlay Check: $e");
+       }
+    }
   }
 
   Future<void> _loadLibrary() async {
@@ -49,10 +75,6 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Scan
-      // For Windows: rootPath is passed. For Android: we trigger permission scan.
-      // We'll normalize this.
-      // 1. Scan
       List<String> paths = [];
       String scanPath = rootPath;
       
@@ -67,45 +89,17 @@ class PlayerProvider extends ChangeNotifier {
          paths = await _scanner.scanDirectory(scanPath);
       }
 
-      // 2. Clear old DB (optional, or just append)
+      // Metadata Extraction (Background Isolate)
+      final newTracks = await compute(_scanAndExtractMetadata, paths);
+
+      // Save to DB
       await _dbService.clearLibrary();
-
-      // 3. Convert to Models
-      List<TrackModel> newTracks = [];
-      
-      for (var p in paths) {
-        final name = p.split(RegExp(r'[/\\]')).last;
-        String title = name;
-        String artist = "Unknown Artist";
-        String album = "Unknown Album";
-        
-        // Basic file metadata
-        try {
-          final metadata = await readMetadata(File(p), getImage: false); // Top-level function
-          title = metadata.title ?? name;
-          if (title.trim().isEmpty) title = name;
-          
-          artist = metadata.artist ?? "Unknown Artist";
-          album = metadata.album ?? "Unknown Album";
-        } catch (e) {
-          // Metadata extraction failed, stick to defaults
-        }
-        
-        newTracks.add(TrackModel()
-          ..path = p
-          ..title = title
-          ..artist = artist
-          ..album = album
-          ..duration = 0 
-        );
-      }
-
-      // 4. Save
       await _dbService.saveTracks(newTracks);
       _library = newTracks;
+      _isQueueSynced = false; // Reset sync flag on new scan
       
     } catch (e) {
-      print("Scan failed: $e");
+      // debugPrint("Scan failed: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -116,16 +110,22 @@ class PlayerProvider extends ChangeNotifier {
     final index = _library.indexOf(track);
     if (index == -1) return;
 
-    // Convert library to MediaItems
-    final queue = _library.map((t) => MediaItem(
-      id: t.path,
-      album: t.album,
-      title: t.title,
-      artist: t.artist,
-      artUri: null, // TODO: Load artwork
-    )).toList();
+    // Only update queue if library changed or not synced
+    // This prevents background service kill/restart on track change
+    if (!_isQueueSynced) {
+      final queue = _library.map((t) => MediaItem(
+        id: t.path,
+        album: t.album,
+        title: t.title,
+        artist: t.artist,
+        duration: t.duration != null ? Duration(milliseconds: t.duration!.toInt()) : null,
+        artUri: Uri.file(t.path),
+      )).toList();
 
-    await _audioHandler.updateQueue(queue);
+      await _audioHandler.updateQueue(queue);
+      _isQueueSynced = true;
+    }
+
     await _audioHandler.skipToQueueItem(index);
     await _audioHandler.play();
     
@@ -136,9 +136,7 @@ class PlayerProvider extends ChangeNotifier {
             "title": track.title,
             "isPlaying": true
          });
-       } catch (e) {
-         print("Overlay error: $e");
-       }
+       } catch (_) { }
     }
   }
 
@@ -149,4 +147,62 @@ class PlayerProvider extends ChangeNotifier {
       await _audioHandler.play();
     }
   }
+}
+
+// Top-level function for Isolate
+List<TrackModel> _scanAndExtractMetadata(List<String> paths) {
+  List<TrackModel> tracks = [];
+  
+  for (var p in paths) {
+    try {
+      final name = p.split(RegExp(r'[/\\]')).last;
+      String title = name;
+      String artist = "Unknown Artist";
+      String album = "Unknown Album";
+      double duration = 0.0;
+
+      // 1. Try ID3 Tags
+      try {
+         final metadata = readMetadata(File(p), getImage: false);
+         title = metadata.title ?? name;
+         if (title.trim().isEmpty) title = name;
+         artist = metadata.artist ?? "Unknown Artist";
+         album = metadata.album ?? "Unknown Album";
+         duration = metadata.duration?.inMilliseconds.toDouble() ?? 0.0;
+      } catch (_) { }
+
+      // 2. Fallback: Parse filename (Artist - Title.mp3)
+      if ((artist == "Unknown Artist" || artist.isEmpty) && name.contains("-")) {
+         final parts = name.split(RegExp(r'\s*-\s*'));
+         if (parts.length >= 2) {
+           artist = parts[0].trim();
+           // Only update title if it's still the filename
+           if (title == name) {
+             String tempTitle = parts.sublist(1).join(" - ").trim();
+             // Remove extension
+             final lastDot = tempTitle.lastIndexOf('.');
+             if (lastDot != -1) {
+               tempTitle = tempTitle.substring(0, lastDot);
+             }
+             title = tempTitle;
+           }
+         }
+      }
+      
+      // Clean extension from title if still present
+      if (title.toLowerCase().endsWith(".mp3") || title.toLowerCase().endsWith(".flac")) {
+         final lastDot = title.lastIndexOf('.');
+         if (lastDot != -1) title = title.substring(0, lastDot);
+      }
+
+      tracks.add(TrackModel()
+        ..path = p
+        ..title = title
+        ..artist = artist
+        ..album = album
+        ..duration = duration
+      );
+    } catch (_) { }
+  }
+  return tracks;
 }
