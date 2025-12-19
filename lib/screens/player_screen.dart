@@ -7,8 +7,27 @@ import '../providers/player_provider.dart';
 import '../services/audio_handler.dart'; // For global audioHandler
 import '../theme/cyber_theme.dart';
 
-class PlayerScreen extends StatelessWidget {
+class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
+
+  @override
+  State<PlayerScreen> createState() => _PlayerScreenState();
+}
+
+class _PlayerScreenState extends State<PlayerScreen> {
+  late Stream<PositionData> _positionDataStream;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize stream ONCE to prevent memory leaks and unnecessary overhead
+    _positionDataStream = Rx.combineLatest3<Duration, Duration, Duration?, PositionData>(
+        AudioService.position,
+        audioHandler.playbackState.map((state) => state.bufferedPosition),
+        audioHandler.mediaItem.map((item) => item?.duration),
+        (position, bufferedPosition, duration) => PositionData(
+            position, bufferedPosition, duration ?? Duration.zero));
+  }
 
   String _formatDuration(Duration? d) {
     if (d == null) return "--:--";
@@ -56,7 +75,6 @@ class PlayerScreen extends StatelessWidget {
                     child: IntrinsicHeight(
                       child: Column(
                         children: [
-                           // ... same children ...
                            const Spacer(flex: 1),
                            
                            // Album Art
@@ -134,7 +152,7 @@ class PlayerScreen extends StatelessWidget {
                                        ),
                                        child: Slider(
                                          min: 0,
-                                         max: max > 0 ? max : 1,
+                                         max: max > 0 ? max : 1, // Avoid division by zero
                                          value: val,
                                          onChanged: (value) {
                                            audioHandler.seek(Duration(milliseconds: value.toInt()));
@@ -238,15 +256,6 @@ class PlayerScreen extends StatelessWidget {
       ),
     );
   }
-
-  // Combine streams for Position Data
-  Stream<PositionData> get _positionDataStream =>
-      Rx.combineLatest3<Duration, Duration, Duration?, PositionData>(
-          AudioService.position,
-          audioHandler.playbackState.map((state) => state.bufferedPosition),
-          audioHandler.mediaItem.map((item) => item?.duration),
-          (position, bufferedPosition, duration) => PositionData(
-              position, bufferedPosition, duration ?? Duration.zero));
 }
 
 class PositionData {
@@ -256,6 +265,3 @@ class PositionData {
 
   PositionData(this.position, this.bufferedPosition, this.duration);
 }
-
-
-
