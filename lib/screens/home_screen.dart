@@ -36,33 +36,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _handleLifecycleChange(AppLifecycleState state) async {
     // Show overlay when app goes to background (paused/inactive)
     if (Platform.isAndroid) {
-      if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) {
-         // Show overlay if playing
-         if (!mounted) return;
-         final provider = Provider.of<PlayerProvider>(context, listen: false);
-         if (provider.isPlaying) {
-            await FlutterOverlayWindow.showOverlay(
-              enableDrag: true,
-              overlayTitle: "Void Player",
-              overlayContent: "Dynamic Island",
-              flag: OverlayFlag.defaultFlag,
-              visibility: NotificationVisibility.visibilitySecret,
-              positionGravity: PositionGravity.auto,
-              height: 100,
-              width: WindowSize.matchParent
-            );
-            
-            // Sync current state immediately
-            if (provider.currentTrack != null) {
-              await FlutterOverlayWindow.shareData({
-                "title": provider.currentTrack!.title,
-                "isPlaying": true
-              });
-            }
-         }
-      } else if (state == AppLifecycleState.resumed) {
-        await FlutterOverlayWindow.closeOverlay();
-      }
+      try {
+        if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) {
+           // Show overlay if playing
+           if (!mounted) return;
+           final provider = Provider.of<PlayerProvider>(context, listen: false);
+           if (provider.isPlaying && await FlutterOverlayWindow.isPermissionGranted()) {
+              await FlutterOverlayWindow.showOverlay(
+                enableDrag: true,
+                overlayTitle: "Void Player",
+                overlayContent: "Dynamic Island",
+                flag: OverlayFlag.defaultFlag,
+                visibility: NotificationVisibility.visibilitySecret,
+                positionGravity: PositionGravity.auto,
+                height: 100,
+                width: WindowSize.matchParent
+              );
+              
+              // Sync current state immediately
+              if (provider.currentTrack != null) {
+                await FlutterOverlayWindow.shareData({
+                  "title": provider.currentTrack!.title,
+                  "isPlaying": true
+                });
+              }
+           }
+        } else if (state == AppLifecycleState.resumed) {
+          await FlutterOverlayWindow.closeOverlay();
+        }
+      } catch (_) { }
     }
   }
 
