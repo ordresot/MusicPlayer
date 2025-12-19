@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 import 'theme/cyber_theme.dart';
 import 'providers/player_provider.dart';
@@ -10,6 +11,7 @@ import 'services/audio_handler.dart'; // Import the handler
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  WakelockPlus.enable(); // Keep CPU awake
   await initAudioService(); // Initialize Singleton Audio Handler
 
   

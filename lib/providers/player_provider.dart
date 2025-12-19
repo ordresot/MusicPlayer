@@ -51,23 +51,11 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> _updateOverlayTitle(String title) async {
-    if (Platform.isAndroid) {
-       try {
-         await FlutterOverlayWindow.shareData({"title": title});
-       } catch (e) {
-         // debugPrint("Overlay Check: $e");
-       }
-    }
+    return; // DEBUG: Disabled
   }
 
   Future<void> _updateOverlayState({required bool isPlaying}) async {
-    if (Platform.isAndroid) {
-       try {
-         await FlutterOverlayWindow.shareData({"isPlaying": isPlaying});
-       } catch (e) {
-         // debugPrint("Overlay Check: $e");
-       }
-    }
+    return; // DEBUG: Disabled
   }
 
   Future<void> _loadLibrary() async {
@@ -135,15 +123,10 @@ class PlayerProvider extends ChangeNotifier {
     await _audioHandler.play();
     
     // Update Overlay
-    if (Platform.isAndroid) {
-       try {
-         await FlutterOverlayWindow.shareData({
-            "title": track.title,
-            "isPlaying": true
-         });
-         _lastPlayingState = true;
-       } catch (_) { }
-    }
+    // Overlay disabled
+    /*
+    if (Platform.isAndroid) { ... }
+    */
   }
 
   Future<void> togglePlay() async {
