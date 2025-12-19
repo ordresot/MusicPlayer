@@ -16,6 +16,7 @@ class PlayerProvider extends ChangeNotifier {
   List<TrackModel> _library = [];
   bool _isLoading = false;
   bool _isQueueSynced = false; // Prevents unnecessary queue reloads
+  bool? _lastPlayingState; // Throttle overlay updates
 
   // Getters
   List<TrackModel> get library => _library;
@@ -34,7 +35,11 @@ class PlayerProvider extends ChangeNotifier {
     // Listen to audio handler changes
     _audioHandler.playbackState.listen((state) {
       notifyListeners();
-      _updateOverlayState(isPlaying: state.playing);
+      // Throttle overlay updates: Only send if playing state CHANGED
+      if (_lastPlayingState != state.playing) {
+        _lastPlayingState = state.playing;
+        _updateOverlayState(isPlaying: state.playing);
+      }
     });
     
     _audioHandler.mediaItem.listen((item) {
@@ -136,6 +141,7 @@ class PlayerProvider extends ChangeNotifier {
             "title": track.title,
             "isPlaying": true
          });
+         _lastPlayingState = true;
        } catch (_) { }
     }
   }
