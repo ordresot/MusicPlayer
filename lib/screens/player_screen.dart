@@ -85,10 +85,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                decoration: BoxDecoration(
                                  borderRadius: BorderRadius.circular(20),
                                  boxShadow: [
-                                   BoxShadow(color: CyberTheme.primary.withValues(alpha: 0.3), blurRadius: 40, spreadRadius: -5),
-                                   BoxShadow(color: CyberTheme.secondary.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(5, 5)),
+                                   BoxShadow(color: CyberTheme.primary.withOpacity(0.3), blurRadius: 40, spreadRadius: -5),
+                                   BoxShadow(color: CyberTheme.secondary.withOpacity(0.2), blurRadius: 20, offset: const Offset(5, 5)),
                                  ],
-                                 border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                                 border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
                                ),
                                child: ClipRRect(
                                  borderRadius: BorderRadius.circular(20),
@@ -98,7 +98,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                  ),
                                ),
                              ).animate(target: provider.isPlaying ? 1 : 0)
-                              .shimmer(duration: 3.seconds, delay: 1.seconds, color: CyberTheme.primary.withValues(alpha: 0.1))
+                              .shimmer(duration: 3.seconds, delay: 1.seconds, color: CyberTheme.primary.withOpacity(0.1))
                               .scale(begin: const Offset(0.95, 0.95), end: const Offset(1, 1), duration: 2.seconds, curve: Curves.easeInOut),
                            ),
                            
@@ -203,7 +203,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                      height: 80,
                                      decoration: BoxDecoration(
                                        shape: BoxShape.circle,
-                                       boxShadow: [BoxShadow(color: CyberTheme.primary.withValues(alpha: 0.5), blurRadius: 20)],
+                                       boxShadow: [BoxShadow(color: CyberTheme.primary.withOpacity(0.5), blurRadius: 20)],
                                        gradient: const LinearGradient(colors: [CyberTheme.primary, CyberTheme.secondary])
                                      ),
                                      child: IconButton(
