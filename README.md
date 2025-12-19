@@ -1,83 +1,91 @@
-# 🎵 Void Player
+# 🎵 Void Player (Phoenix Edition)
 
-A lightweight, fully offline music player built with **Flutter**, featuring a modern **Cyberpunk / Neon-Dark UI**.
-Designed for performance and aesthetics, running natively on **Android** and **Windows**.
+> **"The music player that never sleeps."**
 
-For the motivation and story behind this project, read [ABOUT.md](ABOUT.md).
+A robust, fully offline music player built with **Flutter** and **Native C++** (via MediaKit).
+Designed for extreme stability, background endurance, and cyberpunk aesthetics.
 
-## ✨ Features
+![Void Player Banner](https://via.placeholder.com/1200x400/000000/00FFFF?text=VOID+PLAYER)
 
-*   **Offline Playback**: Plays local audio files (MP3, FLAC, WAV, M4A) directly from your device.
-*   **Cyberpunk Aesthetics**: Custom-built Dark Mode with Neon Accents (Cyan/Purple), Glassmorphism, and futuristic typography.
-*   **Dynamic Island Player**: A floating "pill" player (Spotify-style) that animates and follows you across screens.
-*   **Efficient Database**: Uses **Hive** (NoSQL) for instant library loading (no need to rescan every startup).
-*   **Background Playback**: Full support for background audio and notification controls via `audio_service`.
-*   **Cross-Platform**:
-    *   **Android**: Auto-scans standard Music folders.
-    *   **Windows**: Drag-and-drop or select any folder to scan.
+---
+
+## 🏗️ System Architecture ("The Phoenix Protocol")
+
+Void Player operates on a custom-built architecture designed to solve the "40-second background crash" notorious in Android development.
+
+### 1. The Core Engine (`CyberAudioHandler`)
+Unlike standard Flutter players that run on the UI thread, Void Player utilizes a **Foreground Service** with a dedicated **C++ Audio Back-end**.
+*   **MediaKit**: Uses `libmpv` (C++) for audio decoding. This bypasses the Android MediaPlayer framework, preventing codec-specific crashes.
+*   **Smart Wakelock**: Implements a "VLC-style" Partial Wakelock.
+    *   **Playing**: CPU is locked Awake.
+    *   **Paused**: CPU is released to sleep.
+*   **Audio Session**: Manages focus (pauses on calls, ducks on notifications).
+
+### 2. The Nervous System (`PlayerProvider`)
+A passive state machine that mirrors the Engine. It has zero logic of its own regarding playback state, eliminating "Split-Brain" bugs where the UI thinks music is playing but the engine stopped.
+
+### 3. The Black Box (`CrashLogger`)
+A forensic subsystem that writes fatal errors to the device's internal storage (`crash_logs.txt`). Even if the UI vanishes, the Black Box survives to report the cause.
+
+---
+
+## 📂 Project Structure
+
+```bash
+lib/
+├── main.dart                  # Entry Point (Crash Guard + Dependency Injection)
+├── screens/
+│   ├── home_screen.dart       # Dashboard (Dynamic Island + Library)
+│   └── player_screen.dart     # Now Playing UI (Animations + visualizer)
+├── services/
+│   ├── audio_handler.dart     # THE PHOENIX ENGINE (Native Audio + Service)
+│   ├── crash_logger.dart      # "The Black Box" implementation
+│   ├── db_service.dart        # Hive Database (Track metadata)
+│   ├── file_scanner.dart      # Permission & FileWalker logic
+│   └── battery_optimization_service.dart # (Deprecated) OEM specific checks
+├── providers/
+│   └── player_provider.dart   # State Machine (Connects UI to Engine)
+└── widgets/
+    └── dynamic_island.dart    # Floating Mini-Player
+```
+
+---
 
 ## 🛠️ Tech Stack
 
-*   **Framework**: Flutter (Dart)
-*   **Audio Engine**: `just_audio` + `audio_service`
-*   **Database**: `hive` (High-performance Key-Value store)
-*   **State Management**: `provider`
-*   **UI/Animations**: `flutter_animate`, `google_fonts` (Orbitron)
-*   **Window Management**: `window_manager` (Custom title bars on Desktop)
+| Component | Technology | Reasoning |
+| :--- | :--- | :--- |
+| **Framework** | Flutter 3.16+ | Cross-platform UI |
+| **Audio Engine** | **MediaKit** (C++) | Industrial-strength stability (mpv based) |
+| **Service** | `audio_service` | Android Foreground Service guarantees |
+| **Database** | `Hive` | Instant startup (NoSQL Key-Value) |
+| **State** | `Provider` | Efficient reactive UI |
+| **Logging** | `dart:io` | Raw file logging for independent diagnostics |
 
-## 🚀 Getting Started
+---
+
+## 🚀 Installation & Build
 
 ### Prerequisites
+- Flutter SDK 3.x
+- **Windows**: Visual Studio 2022 (C++ Desktop Workload)
+- **Android**: SDK 34 (UpsideDownCake)
 
-*   [Flutter SDK](https://flutter.dev/docs/get-started/install) (3.x or later)
-*   **Android**: Android SDK & Emulator/Device.
-*   **Windows**: Visual Studio 2022 with "Desktop development with C++" workload.
+### Running
+```bash
+# 1. Get packages
+flutter pub get
 
-### Installation
+# 2. Run (Release mode recommended for performance)
+flutter run --release
+```
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/yourusername/cyber-music-player.git
-    cd cyber-music-player
-    ```
+## 🐛 Troubleshooting (The Black Box)
 
-2.  **Install Dependencies**:
-    ```bash
-    flutter pub get
-    ```
+If the app crashes, connect your phone and run:
+`adb shell run-as com.example.cyber_music_player cat app_flutter/crash_logs.txt`
 
-3.  **Run the App**:
-
-    *   **Android**:
-        ```bash
-        flutter run -d android
-        ```
-    *   **Windows**:
-        ```bash
-        flutter run -d windows
-        ```
-
-### 📱 Android Notes
-*   On first launch, grant **Storage/Audio permissions** when prompted.
-*   The app automatically scans `/storage/emulated/0/Music` (standard Music folder).
-
-### 💻 Windows Notes
-*   If you encounter "Visual Studio not found", ensure you have VS 2022 installed with C++ tools.
-*   The generic file picker allows you to select any folder to scan.
-
-## 🔧 Roadmap
-
-- [x] Basic Playback & Cyberpunk UI
-- [x] Background Audio Support
-- [x] Hive Database Integration
-- [ ] Metadata Extraction (Artist, Title, Album Art)
-- [ ] Shuffle & Repeat Modes
-- [ ] Smart Playlists
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to open an issue or submit a pull request.
+---
 
 ## 📄 License
-
-MIT License. Free to use and modify.
+MIT License. Open Source.
