@@ -5,7 +5,6 @@ import 'package:window_manager/window_manager.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../widgets/dynamic_island.dart';
 import '../providers/player_provider.dart';
-import '../services/battery_optimization_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

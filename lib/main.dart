@@ -2,12 +2,11 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Internal Service Imports
 import 'theme/cyber_theme.dart';
-import 'services/audio_handler.dart'; 
+import 'package:just_audio_background/just_audio_background.dart';
 import 'services/crash_logger.dart';
 import 'providers/player_provider.dart';
 
@@ -20,11 +19,17 @@ void main() async {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     
-    // Initialize Native Media Engine
-    MediaKit.ensureInitialized();
-    
-    // Initialize Audio Service (Background & Notifications)
-    await initAudioService();
+    // Initialize JustAudioBackground (Replaces AudioHandler)
+    try {
+      await JustAudioBackground.init(
+        androidNotificationChannelId: 'com.void.player.channel.audio',
+        androidNotificationChannelName: 'Void Player Playback',
+        androidNotificationOngoing: true,
+        notificationColor: const Color(0xFF00FFFF),
+      ).timeout(const Duration(seconds: 3));
+    } catch (e) {
+      debugPrint("⚠️ Audio Init Timed Out or Failed: $e");
+    }
 
     // Desktop: Window Management
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {

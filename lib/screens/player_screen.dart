@@ -1,10 +1,10 @@
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:rxdart/rxdart.dart';
 import '../providers/player_provider.dart';
-import '../services/audio_handler.dart'; // For global audioHandler
 import '../theme/cyber_theme.dart';
 
 class PlayerScreen extends StatefulWidget {
@@ -15,20 +15,7 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  late Stream<PositionData> _positionDataStream;
-  double? _dragValue; // Optimize scrubbing and prevent seek-flooding
-
-  @override
-  void initState() {
-    super.initState();
-    // Initialize stream ONCE to prevent memory leaks and unnecessary overhead
-    _positionDataStream = Rx.combineLatest3<Duration, Duration, Duration?, PositionData>(
-        AudioService.position,
-        audioHandler.playbackState.map((state) => state.bufferedPosition),
-        audioHandler.mediaItem.map((item) => item?.duration),
-        (position, bufferedPosition, duration) => PositionData(
-            position, bufferedPosition, duration ?? Duration.zero));
-  }
+  double? _dragValue;
 
   String _formatDuration(Duration? d) {
     if (d == null) return "--:--";
@@ -39,6 +26,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final player = context.read<PlayerProvider>().player;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -65,8 +54,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
         child: Consumer<PlayerProvider>(
           builder: (context, provider, child) {
-            final track = provider.currentTrack;
-            if (track == null) return const Center(child: Text("No Track Playing"));
+            // Get Metadata from current Source Tag
+            final sequenceState = player.sequenceState;
+            final currentItem = sequenceState?.currentSource?.tag as MediaItem?;
+            
+            if (currentItem == null) return const Center(child: Text("No Track Playing"));
 
             return LayoutBuilder(
               builder: (context, constraints) {
@@ -86,11 +78,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                decoration: BoxDecoration(
                                  borderRadius: BorderRadius.circular(20),
                                  boxShadow: [
-                                   // Optimized Shadows: Reduced blur radius and spread for performance
-                                   BoxShadow(color: CyberTheme.primary.withOpacity(0.2), blurRadius: 15, spreadRadius: -2),
-                                   BoxShadow(color: CyberTheme.secondary.withOpacity(0.1), blurRadius: 10, offset: const Offset(2, 2)),
+                                   BoxShadow(color: CyberTheme.primary.withValues(alpha: 0.2), blurRadius: 15, spreadRadius: -2),
+                                   BoxShadow(color: CyberTheme.secondary.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(2, 2)),
                                  ],
-                                 border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+                                 border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
                                ),
                                child: ClipRRect(
                                  borderRadius: BorderRadius.circular(20),
@@ -100,7 +91,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                  ),
                                ),
                              ).animate(target: provider.isPlaying ? 1 : 0)
-                              // Removed shimmer for CPU efficiency
                               .scale(begin: const Offset(0.95, 0.95), end: const Offset(1, 1), duration: 2.seconds, curve: Curves.easeInOut),
                            ),
                            
@@ -111,13 +101,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
                              child: Column(
                                children: [
-                                 Text(track.title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                 Text(currentItem.title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                    fontWeight: FontWeight.bold,
                                    color: Colors.white,
                                    letterSpacing: 1.5
                                  )),
                                  const SizedBox(height: 8),
-                                 Text(track.artist ?? "Unknown Artist", style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                 Text(currentItem.artist ?? "Unknown Artist", style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                    color: CyberTheme.primary,
                                  )),
                                ],
@@ -128,12 +118,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                            
                            // Seek Bar & Duration
                            StreamBuilder<PositionData>(
-                             stream: _positionDataStream,
+                             stream: Rx.combineLatest3<Duration, Duration, Duration?, PositionData>(
+                                 player.positionStream,
+                                 player.bufferedPositionStream,
+                                 player.durationStream,
+                                 (position, bufferedPosition, duration) => PositionData(
+                                     position, bufferedPosition, duration ?? Duration.zero)),
                              builder: (context, snapshot) {
                                final positionData = snapshot.data ?? PositionData(Duration.zero, Duration.zero, Duration.zero);
                                final duration = positionData.duration;
                                final position = positionData.position;
-                               // Prevent slider error
                                final max = duration.inMilliseconds.toDouble();
                                final val = position.inMilliseconds.toDouble().clamp(0.0, max);
                                
@@ -154,7 +148,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                        ),
                                        child: Slider(
                                          min: 0,
-                                         max: max > 0 ? max : 1, // Avoid division by zero
+                                         max: max > 0 ? max : 1,
                                          value: _dragValue ?? val,
                                          onChangeStart: (value) {
                                             setState(() {
@@ -167,7 +161,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                             });
                                          },
                                          onChangeEnd: (value) {
-                                           audioHandler.seek(Duration(milliseconds: value.toInt()));
+                                           player.seek(Duration(milliseconds: value.toInt()));
                                            setState(() {
                                              _dragValue = null;
                                            });
@@ -183,33 +177,40 @@ class _PlayerScreenState extends State<PlayerScreen> {
                            const SizedBox(height: 16),
                            
                            // Controls
-                           StreamBuilder<PlaybackState>(
-                             stream: audioHandler.playbackState,
+                           StreamBuilder<PlayerState>(
+                             stream: player.playerStateStream,
                              builder: (context, snapshot) {
-                               final playing = snapshot.data?.playing ?? false;
-                               final shuffleMode = snapshot.data?.shuffleMode ?? AudioServiceShuffleMode.none;
-                               final repeatMode = snapshot.data?.repeatMode ?? AudioServiceRepeatMode.none;
+                               final playerState = snapshot.data;
+                               final processingState = playerState?.processingState;
+                               final playing = playerState?.playing;
+                               if (processingState == ProcessingState.loading ||
+                                   processingState == ProcessingState.buffering) {
+                                 return const CircularProgressIndicator(color: CyberTheme.primary);
+                               }
 
                                return Row(
                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                  children: [
                                    // Shuffle
-                                   IconButton(
-                                     icon: Icon(Icons.shuffle, 
-                                       color: shuffleMode == AudioServiceShuffleMode.all ? CyberTheme.primary : Colors.white54
-                                     ), 
-                                     onPressed: () {
-                                       final newMode = shuffleMode == AudioServiceShuffleMode.none
-                                           ? AudioServiceShuffleMode.all
-                                           : AudioServiceShuffleMode.none;
-                                       audioHandler.setShuffleMode(newMode);
+                                   StreamBuilder<bool>(
+                                     stream: player.shuffleModeEnabledStream,
+                                     builder: (context, snapshot) {
+                                       final shuffleEnabled = snapshot.data ?? false;
+                                       return IconButton(
+                                         icon: Icon(Icons.shuffle, 
+                                           color: shuffleEnabled ? CyberTheme.primary : Colors.white54
+                                         ), 
+                                         onPressed: () {
+                                           player.setShuffleModeEnabled(!shuffleEnabled);
+                                         }
+                                       );
                                      }
                                    ),
                                    
                                    // Previous
                                    IconButton(
                                      icon: const Icon(Icons.skip_previous, size: 40), 
-                                     onPressed: audioHandler.skipToPrevious
+                                     onPressed: () => player.seekToPrevious()
                                    ),
                                    
                                    // Play/Pause
@@ -218,37 +219,43 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                      height: 80,
                                      decoration: BoxDecoration(
                                        shape: BoxShape.circle,
-                                       boxShadow: [BoxShadow(color: CyberTheme.primary.withOpacity(0.5), blurRadius: 20)],
+                                       boxShadow: [BoxShadow(color: CyberTheme.primary.withValues(alpha: 0.5), blurRadius: 20)],
                                        gradient: const LinearGradient(colors: [CyberTheme.primary, CyberTheme.secondary])
                                      ),
                                      child: IconButton(
                                        icon: Icon(
-                                         playing ? Icons.pause : Icons.play_arrow, 
+                                         (playing ?? false) ? Icons.pause : Icons.play_arrow, 
                                          color: Colors.black, size: 40
                                        ),
-                                       onPressed: playing ? audioHandler.pause : audioHandler.play,
+                                       onPressed: () => (playing ?? false) ? player.pause() : player.play(),
                                      ),
                                    ),
                                    
                                    // Next
                                    IconButton(
                                      icon: const Icon(Icons.skip_next, size: 40), 
-                                     onPressed: audioHandler.skipToNext
+                                     onPressed: () => player.seekToNext()
                                    ),
                                    
                                    // Repeat
-                                   IconButton(
-                                     icon: Icon(
-                                        repeatMode == AudioServiceRepeatMode.one ? Icons.repeat_one : Icons.repeat, 
-                                        color: repeatMode == AudioServiceRepeatMode.none ? Colors.white54 : CyberTheme.primary
-                                     ), 
-                                     onPressed: () {
-                                        final newMode = repeatMode == AudioServiceRepeatMode.none
-                                           ? AudioServiceRepeatMode.all
-                                           : repeatMode == AudioServiceRepeatMode.all
-                                               ? AudioServiceRepeatMode.one
-                                               : AudioServiceRepeatMode.none;
-                                        audioHandler.setRepeatMode(newMode);
+                                   StreamBuilder<LoopMode>(
+                                     stream: player.loopModeStream,
+                                     builder: (context, snapshot) {
+                                       final loopMode = snapshot.data ?? LoopMode.off;
+                                       return IconButton(
+                                         icon: Icon(
+                                            loopMode == LoopMode.one ? Icons.repeat_one : Icons.repeat, 
+                                            color: loopMode == LoopMode.off ? Colors.white54 : CyberTheme.primary
+                                         ), 
+                                         onPressed: () {
+                                            final newMode = loopMode == LoopMode.off
+                                               ? LoopMode.all
+                                               : loopMode == LoopMode.all
+                                                   ? LoopMode.one
+                                                   : LoopMode.off;
+                                            player.setLoopMode(newMode);
+                                         }
+                                       );
                                      }
                                    ),
                                  ],

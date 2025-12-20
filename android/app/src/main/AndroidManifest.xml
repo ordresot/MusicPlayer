@@ -15,11 +15,12 @@
     <application
         android:label="Void Player"
         android:name="${applicationName}"
+        android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher">
         <!-- Overlay Service removed for stability debugging -->
         <!-- <service android:name="flutter.overlay.window.flutter_overlay_window.OverlayService" android:exported="false" /> -->
         
-        <service android:name="com.ryanheise.audioservice.AudioService"
+        <service android:name="com.ryanheise.just_audio_background.AudioService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="true">
             <intent-filter>
@@ -27,12 +28,7 @@
             </intent-filter>
         </service>
 
-        <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MEDIA_BUTTON" />
-            </intent-filter>
-        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
