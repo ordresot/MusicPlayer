@@ -36,7 +36,7 @@ val NeonCyan = Color(0xFF00F0FF)
 val NeonMagenta = Color(0xFFFF00FF)
 val DeepBlack = Color(0xFF050510)
 val DarkSurface = Color(0xFF13131F)
-val NeonYellow = Color(0xFFFNEE00)
+val NeonYellow = Color(0xFFFFEE00)
 
 val CyberpunkScheme = darkColorScheme(
     primary = NeonCyan,
