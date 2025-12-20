@@ -1,9 +1,20 @@
 package com.example.voidplayer.player
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.annotation.OptIn
+import androidx.core.app.NotificationCompat
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaSession
+import com.example.voidplayer.MainActivity
 import com.example.voidplayer.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +31,8 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
     private val player = ExoPlayer.Builder(context).build()
     private val scope = CoroutineScope(Dispatchers.Main)
     
+    private var mediaSession: MediaSession? = null
+
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
@@ -32,36 +45,101 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
     private val _error = MutableStateFlow<String?>(null)
     override val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _isShuffle = MutableStateFlow(false)
+    override val isShuffle: StateFlow<Boolean> = _isShuffle.asStateFlow()
+
+    private val _repeatMode = MutableStateFlow(AudioPlayer.RepeatMode.OFF)
+    override val repeatMode: StateFlow<AudioPlayer.RepeatMode> = _repeatMode.asStateFlow()
+
+    private var playlist: List<Song> = emptyList()
     private var progressJob: Job? = null
 
     init {
+        val intent = Intent(context, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        
+        mediaSession = MediaSession.Builder(context, player)
+            .setSessionActivity(pendingIntent)
+            .build()
+
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
-                if (isPlaying) {
-                    startProgressUpdate()
-                    _error.value = null // Clear error on successful play
-                } else {
-                    stopProgressUpdate()
+                if (isPlaying) startProgressUpdate() else stopProgressUpdate()
+            }
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val index = player.currentMediaItemIndex
+                if (index in playlist.indices) {
+                    _currentSong.value = playlist[index]
                 }
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                super.onPlayerError(error)
                 _error.value = "Playback Error: ${error.message}"
-                _isPlaying.value = false
-                stopProgressUpdate()
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED) {
-                    _isPlaying.value = false
-                    _currentPosition.value = 0
-                    stopProgressUpdate()
-                    // Optional: Auto-next logic could go here
-                }
             }
         })
+    }
+
+    override fun setPlaylist(songs: List<Song>) {
+        this.playlist = songs
+        val mediaItems = songs.map { song ->
+            MediaItem.Builder()
+                .setMediaId(song.id.toString())
+                .setUri(song.uri)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(song.title)
+                        .setArtist(song.artist)
+                        .setArtworkData(song.coverArt, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                        .build()
+                )
+                .build()
+        }
+        player.setMediaItems(mediaItems)
+        player.prepare()
+    }
+
+    override fun play(song: Song) {
+        val index = playlist.indexOfFirst { it.id == song.id }
+        if (index != -1) {
+            player.seekTo(index, 0)
+            player.play()
+        } else {
+            setPlaylist(listOf(song))
+            player.play()
+        }
+    }
+
+    override fun pause() { player.pause() }
+    override fun resume() { player.play() }
+
+    override fun next() {
+        if (player.hasNextMediaItem()) player.seekToNext()
+    }
+
+    override fun previous() {
+        if (player.hasPreviousMediaItem()) player.seekToPrevious()
+    }
+
+    override fun toggleShuffle() {
+        val newValue = !_isShuffle.value
+        _isShuffle.value = newValue
+        player.shuffleModeEnabled = newValue
+    }
+
+    override fun toggleRepeat() {
+        val nextMode = when (_repeatMode.value) {
+            AudioPlayer.RepeatMode.OFF -> AudioPlayer.RepeatMode.ALL
+            AudioPlayer.RepeatMode.ALL -> AudioPlayer.RepeatMode.ONE
+            AudioPlayer.RepeatMode.ONE -> AudioPlayer.RepeatMode.OFF
+        }
+        _repeatMode.value = nextMode
+        player.repeatMode = when (nextMode) {
+            AudioPlayer.RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+            AudioPlayer.RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+            AudioPlayer.RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+        }
     }
 
     private fun startProgressUpdate() {
@@ -69,7 +147,7 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         progressJob = scope.launch {
             while (isActive) {
                 _currentPosition.value = player.currentPosition
-                delay(1000) // Update every second
+                delay(1000)
             }
         }
     }
@@ -79,30 +157,11 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         progressJob = null
     }
 
-    override fun play(song: Song) {
-        if (_currentSong.value?.id != song.id) {
-            _currentSong.value = song
-            val mediaItem = MediaItem.fromUri(song.uri)
-            player.setMediaItem(mediaItem)
-            player.prepare()
-        }
-        player.play()
-    }
-
-    override fun pause() {
-        player.pause()
-    }
-
-    override fun resume() {
-        player.play()
-    }
-
-    override fun seekTo(position: Long) {
-        player.seekTo(position)
-        _currentPosition.value = position
-    }
-
+    override fun seekTo(position: Long) { player.seekTo(position) }
+    
     override fun cleanUp() {
+        mediaSession?.release()
+        mediaSession = null
         player.release()
         stopProgressUpdate()
     }

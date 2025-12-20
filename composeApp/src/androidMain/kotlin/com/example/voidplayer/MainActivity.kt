@@ -12,45 +12,40 @@ import com.example.voidplayer.player.AndroidAudioPlayer
 
 class MainActivity : ComponentActivity() {
     
+    private lateinit var audioPlayer: AndroidAudioPlayer
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val repository = AndroidSongRepository(this)
-        val audioPlayer = AndroidAudioPlayer(this)
+        audioPlayer = AndroidAudioPlayer(this)
         
-        // State to verify folder selection - using Compose State to trigger updates in App
         val pickedFolderUri = mutableStateOf<String?>(null)
         val statusMsg = mutableStateOf("Ready")
 
         val permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-           if(isGranted) recreate() 
+           if(!isGranted) {
+               statusMsg.value = "Permission Denied. Library empty."
+               android.util.Log.w("VoidPlayer", "Storage permission denied")
+           }
         }
         
-        // Folder Picker Launcher
         val folderPickerLauncher = registerForActivityResult(
             ActivityResultContracts.OpenDocumentTree()
         ) { uri ->
             if (uri != null) {
-                statusMsg.value = "Selected: $uri"
-                android.util.Log.d("VoidPlayer", "Folder picked: $uri")
                 try {
                     contentResolver.takePersistableUriPermission(
                         uri,
-                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or 
-                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
-                    statusMsg.value = "Permission Granted. Scaning..."
-                    android.util.Log.d("VoidPlayer", "Persistable permission taken")
                     pickedFolderUri.value = uri.toString()
                 } catch(e: Exception) { 
-                    statusMsg.value = "Auth Error: ${e.message}"
-                    android.util.Log.e("VoidPlayer", "Permission failed", e)
+                    statusMsg.value = "Folder Auth Failed"
+                    android.util.Log.e("VoidPlayer", "Persistable permission failed", e)
                 }
-            } else {
-                statusMsg.value = "Cancelled by user"
-                android.util.Log.d("VoidPlayer", "Folder picker cancelled")
             }
         }
 
@@ -69,11 +64,16 @@ class MainActivity : ComponentActivity() {
                 pickedFolderUri = pickedFolderUri,
                 statusMessage = statusMsg.value,
                 onPickFolder = { 
-                    statusMsg.value = "Launching Intent..."
-                    android.widget.Toast.makeText(this, "Launching folder picker...", android.widget.Toast.LENGTH_SHORT).show()
                     folderPickerLauncher.launch(null)
                 }
             )
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::audioPlayer.isInitialized) {
+            audioPlayer.cleanUp()
         }
     }
 }
