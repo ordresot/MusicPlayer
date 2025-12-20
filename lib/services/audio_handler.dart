@@ -1,79 +1,119 @@
+import 'dart:async';
 import 'package:audio_service/audio_service.dart';
-import 'package:just_audio/just_audio.dart';
-
 import 'package:audio_session/audio_session.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:flutter/material.dart';
+import 'crash_logger.dart'; // The Black Box
 
 late AudioHandler audioHandler;
 
+/// Initialize the Audio Service with the Phoenix Engine
 Future<void> initAudioService() async {
-  audioHandler = await AudioService.init(
-    builder: () => CyberAudioHandler(),
-    config: AudioServiceConfig(
-      androidNotificationChannelId: 'com.example.cyber_music_player.channel.audio',
-      androidNotificationChannelName: 'Cyber Music Playback',
-      androidNotificationOngoing: true,
-      androidNotificationIcon: 'ic_launcher',
-      androidStopForegroundOnPause: false,
-      androidResumeOnClick: true,
-    ),
-  );
+  try {
+    audioHandler = await AudioService.init(
+      builder: () => CyberAudioHandler(),
+      config: AudioServiceConfig(
+        androidNotificationChannelId: 'com.void.player.channel.audio',
+        androidNotificationChannelName: 'Void Player Playback',
+        androidNotificationOngoing: true,
+        androidNotificationIcon: 'ic_launcher',
+        androidStopForegroundOnPause: false, // Keep service alive when paused (standard behavior)
+        androidResumeOnClick: true,
+        notificationColor: const Color(0xFF00FFFF), // Cyan brand color
+      ),
+    );
+  } catch (e, stack) {
+    CrashLogger.log("AudioService Init Failed", stack);
+  }
 }
 
+/// The Phoenix Engine: A robust, simplified AudioHandler
 class CyberAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
-  final _player = AudioPlayer(); // Define player here
-
+  // CRITICAL FIX: 'vo: null' prevents generic surface crash in background.
+  final Player _player = Player(configuration: const PlayerConfiguration(vo: null));
+  
+  // Internal mapping of MediaItems to MediaKit Media
+  final List<Media> _mediaQueue = [];
 
   CyberAudioHandler() {
+    // SAFETY: Ensure FFI loaded if running in background isolate
+    MediaKit.ensureInitialized();
     _init();
   }
 
   Future<void> _init() async {
-    // Configure session for background playback
-    final session = await AudioSession.instance;
-    await session.configure(const AudioSessionConfiguration.music());
-
-    // Broadcast playback state changes
-    _player.playbackEventStream.listen(_broadcastState);
-    
-    // Broadcast duration changes
-    _player.durationStream.listen((duration) {
-       final old = mediaItem.value;
-       if (old != null && duration != null) {
-         mediaItem.add(old.copyWith(duration: duration));
-       }
-    });
-
-    // Handle completion
-    _player.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) {
-        skipToNext();
-      }
-    });
-
-    // Broadcast current media item
-    _player.sequenceStateStream.listen((sequenceState) {
-      // warning: The operand can't be 'null' -> properly accessed
-      final currentItem = sequenceState.currentSource;
-      // Map tag to MediaItem (we will store MediaItem in tag)
-      if (currentItem?.tag is MediaItem) { 
-        final tagItem = currentItem!.tag as MediaItem;
-        final realDuration = _player.duration;
-        if (realDuration != null && realDuration != Duration.zero) {
-          mediaItem.add(tagItem.copyWith(duration: realDuration));
+    try {
+      // 1. Configure Audio Session (Critical for Focus handling)
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.music());
+      
+      // Handle Audio Focus interruptions (calls/other apps)
+      session.interruptionEventStream.listen((event) {
+        if (event.begin) {
+          switch (event.type) {
+            case AudioInterruptionType.duck:
+              _player.setVolume(50);
+              break;
+            case AudioInterruptionType.pause:
+            case AudioInterruptionType.unknown:
+              pause();
+              break;
+          }
         } else {
-          mediaItem.add(tagItem);
+          switch (event.type) {
+            case AudioInterruptionType.duck:
+              _player.setVolume(100);
+              break;
+            case AudioInterruptionType.pause:
+              play();
+              break;
+            default:
+              break;
+          }
         }
-      }
-    });
+      });
+
+      // 2. Playback State Stream
+      _player.stream.playing.listen((playing) {
+        _broadcastState();
+      }, onError: (Object e, StackTrace s) => CrashLogger.log("Stream Error: Playing", s));
+
+      // 3. Duration Stream
+      _player.stream.duration.listen((duration) {
+        final current = mediaItem.value;
+        if (current != null && duration != Duration.zero) {
+          mediaItem.add(current.copyWith(duration: duration));
+        }
+      }, onError: (Object e, StackTrace s) => CrashLogger.log("Stream Error: Duration", s));
+
+      // 4. Completion Stream
+      _player.stream.completed.listen((completed) async {
+         if (completed) {
+           await skipToNext();
+         }
+      }, onError: (Object e, StackTrace s) => CrashLogger.log("Stream Error: Completed", s));
+
+      // 5. Cleanup on isolate death? (Not needed for singleton usually)
+      
+    } catch (e, stack) {
+      CrashLogger.log("AudioHandler Init Error", stack);
+    }
   }
 
-  void _broadcastState(PlaybackEvent event) {
-    final playing = _player.playing;
+
+
+  /// Broadcasts the current state to the UI
+  void _broadcastState({Duration? newPosition}) {
+    final playing = _player.state.playing;
+    final position = newPosition ?? _player.state.position;
+    final buffered = _player.state.buffer;
+
     playbackState.add(playbackState.value.copyWith(
       controls: [
         MediaControl.skipToPrevious,
         if (playing) MediaControl.pause else MediaControl.play,
         MediaControl.skipToNext,
+        MediaControl.stop,
       ],
       systemActions: const {
         MediaAction.seek,
@@ -81,78 +121,115 @@ class CyberAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler 
         MediaAction.seekBackward,
       },
       androidCompactActionIndices: const [0, 1, 2],
-      processingState: const {
-        ProcessingState.idle: AudioProcessingState.idle,
-        ProcessingState.loading: AudioProcessingState.loading,
-        ProcessingState.buffering: AudioProcessingState.buffering,
-        ProcessingState.ready: AudioProcessingState.ready,
-        ProcessingState.completed: AudioProcessingState.completed,
-      }[_player.processingState]!,
+      processingState: _player.state.buffering 
+          ? AudioProcessingState.buffering
+          : AudioProcessingState.ready,
       playing: playing,
-      updatePosition: _player.position,
-      bufferedPosition: _player.bufferedPosition,
-      speed: _player.speed,
-      queueIndex: event.currentIndex,
+      updatePosition: position,
+      bufferedPosition: buffered,
+      queueIndex: null, 
     ));
   }
 
   @override
   Future<void> play() async {
-    try { await _player.play(); } catch (_) { }
+    try {
+      final session = await AudioSession.instance;
+      if (await session.setActive(true)) {
+        await _player.play();
+      } else {
+        debugPrint("Failed to activate audio session");
+      }
+    } catch (e, s) {
+      CrashLogger.log("Play Error", s);
+    }
   }
 
   @override
   Future<void> pause() async {
-    try { await _player.pause(); } catch (_) { }
-  }
-
-  @override
-  Future<void> seek(Duration position) async {
-    try { await _player.seek(position); } catch (_) { }
+    try {
+      await _player.pause();
+    } catch (e, s) {
+      CrashLogger.log("Pause Error", s);
+    }
   }
 
   @override
   Future<void> stop() async {
-    try { await _player.stop(); } catch (_) { }
+    try {
+      await _player.stop();
+      await (await AudioSession.instance).setActive(false);
+    } catch (e, s) {
+      CrashLogger.log("Stop Error", s);
+    }
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    try {
+      await _player.seek(position);
+      _broadcastState(newPosition: position);
+    } catch (e, s) {
+      CrashLogger.log("Seek Error", s);
+    }
   }
 
   @override
   Future<void> skipToNext() async {
-    try { await _player.seekToNext(); } catch (_) { }
+     try {
+       await _player.next(); 
+     } catch (e) {
+       // Often generic error if no next track, ignore or log lightly
+     }
   }
 
   @override
   Future<void> skipToPrevious() async {
-    try { await _player.seekToPrevious(); } catch (_) { }
+    try {
+      await _player.previous();
+    } catch (e) {}
+  }
+
+  @override
+  Future<void> updateQueue(List<MediaItem> queue) async {
+    try {
+      // 1. Update AudioService Queue
+      this.queue.add(queue);
+      
+      // 2. Convert to MediaKit Media
+      _mediaQueue.clear();
+      for (var item in queue) {
+        _mediaQueue.add(Media(item.id, extras: {'item': item}));
+      }
+
+      // 3. Load into Player
+      // Note: We use 'autoStart: false' to prevent auto-play on queue update
+      final playlist = Playlist(_mediaQueue);
+      await _player.open(playlist, play: false);
+      
+      // 4. Set first item as current
+      if (queue.isNotEmpty) {
+        mediaItem.add(queue.first);
+      }
+    } catch (e, s) {
+      CrashLogger.log("Queue Update Error", s);
+    }
   }
 
   @override
   Future<void> skipToQueueItem(int index) async {
-    try { await _player.seek(null, index: index); } catch (_) { }
-  }
-
-  // Load a playlist
-  @override
-  Future<void> updateQueue(List<MediaItem> queue) async {
     try {
-      // Convert MediaItems to AudioSources
-      final audioSources = queue.map((item) {
-        return AudioSource.uri(
-          Uri.parse(item.id),
-          tag: item, // Store MediaItem in tag for easy retrieval
-        );
-      }).toList();
-
-      // Define shuffle order (simple sequential for now)
-      await _player.setAudioSource(
-        // ignore: deprecated_member_use
-        ConcatenatingAudioSource(children: audioSources),
-        initialIndex: 0,
-      );
+      if (index < 0 || index >= _mediaQueue.length) return;
       
-      // Update queue in audio_service
-      this.queue.add(queue);
-      mediaItem.add(queue[0]);
-    } catch (_) { }
+      await _player.jump(index);
+      
+      // Update MediaItem manually to ensure rapid UI feedback
+      final item = queue.value[index];
+      mediaItem.add(item);
+      
+      play();
+    } catch (e, s) {
+      CrashLogger.log("Skip To Item Error", s);
+    }
   }
 }

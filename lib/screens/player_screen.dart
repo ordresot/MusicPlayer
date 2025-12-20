@@ -16,6 +16,7 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen> {
   late Stream<PositionData> _positionDataStream;
+  double? _dragValue; // Optimize scrubbing and prevent seek-flooding
 
   @override
   void initState() {
@@ -85,8 +86,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                decoration: BoxDecoration(
                                  borderRadius: BorderRadius.circular(20),
                                  boxShadow: [
-                                   BoxShadow(color: CyberTheme.primary.withOpacity(0.3), blurRadius: 40, spreadRadius: -5),
-                                   BoxShadow(color: CyberTheme.secondary.withOpacity(0.2), blurRadius: 20, offset: const Offset(5, 5)),
+                                   // Optimized Shadows: Reduced blur radius and spread for performance
+                                   BoxShadow(color: CyberTheme.primary.withOpacity(0.2), blurRadius: 15, spreadRadius: -2),
+                                   BoxShadow(color: CyberTheme.secondary.withOpacity(0.1), blurRadius: 10, offset: const Offset(2, 2)),
                                  ],
                                  border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
                                ),
@@ -98,7 +100,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                  ),
                                ),
                              ).animate(target: provider.isPlaying ? 1 : 0)
-                              .shimmer(duration: 3.seconds, delay: 1.seconds, color: CyberTheme.primary.withOpacity(0.1))
+                              // Removed shimmer for CPU efficiency
                               .scale(begin: const Offset(0.95, 0.95), end: const Offset(1, 1), duration: 2.seconds, curve: Curves.easeInOut),
                            ),
                            
@@ -153,9 +155,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                        child: Slider(
                                          min: 0,
                                          max: max > 0 ? max : 1, // Avoid division by zero
-                                         value: val,
+                                         value: _dragValue ?? val,
+                                         onChangeStart: (value) {
+                                            setState(() {
+                                              _dragValue = value;
+                                            });
+                                         },
                                          onChanged: (value) {
+                                            setState(() {
+                                              _dragValue = value;
+                                            });
+                                         },
+                                         onChangeEnd: (value) {
                                            audioHandler.seek(Duration(milliseconds: value.toInt()));
+                                           setState(() {
+                                             _dragValue = null;
+                                           });
                                          },
                                        ),
                                      ),

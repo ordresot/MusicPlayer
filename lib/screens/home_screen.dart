@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../widgets/dynamic_island.dart';
 import '../providers/player_provider.dart';
+import '../services/battery_optimization_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +21,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _requestOverlayPermission();
+    
+    // Standard Android lifecycle handles background now.
+    // Manufacturer checks removed for seamless UX.
   }
 
   @override

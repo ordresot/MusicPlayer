@@ -1,24 +1,22 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart'; // For compute
+import 'package:flutter/foundation.dart'; 
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import '../services/audio_handler.dart';
 import '../services/db_service.dart';
 import '../services/file_scanner.dart';
+import '../services/crash_logger.dart';
 
 class PlayerProvider extends ChangeNotifier {
-  // Use the global singleton initialized in main.dart
+  // Access the singleton Phoenix Engine
   final AudioHandler _audioHandler = audioHandler; 
   final DbService _dbService = DbService();
   final FileScannerService _scanner = FileScannerService();
 
   List<TrackModel> _library = [];
   bool _isLoading = false;
-  bool _isQueueSynced = false; // Prevents unnecessary queue reloads
-  bool? _lastPlayingState; // Throttle overlay updates
-
-  // Getters
+  
+  // Getters relying solely on AudioService state (Single Source of Truth)
   List<TrackModel> get library => _library;
   bool get isLoading => _isLoading;
   bool get isPlaying => _audioHandler.playbackState.value.playing;
@@ -29,38 +27,31 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> _init() async {
-    await _dbService.init();
-    _loadLibrary();
-    
-    // Listen to audio handler changes
-    _audioHandler.playbackState.listen((state) {
-      notifyListeners();
-      // Throttle overlay updates: Only send if playing state CHANGED
-      if (_lastPlayingState != state.playing) {
-        _lastPlayingState = state.playing;
-        _updateOverlayState(isPlaying: state.playing);
-      }
-    });
-    
-    _audioHandler.mediaItem.listen((item) {
-      notifyListeners();
-      if (item != null) {
-        _updateOverlayTitle(item.title);
-      }
-    });
-  }
-
-  Future<void> _updateOverlayTitle(String title) async {
-    return; // DEBUG: Disabled
-  }
-
-  Future<void> _updateOverlayState({required bool isPlaying}) async {
-    return; // DEBUG: Disabled
+    try {
+      await _dbService.init();
+      await _loadLibrary();
+      
+      // Listen to Engine State
+      // We don't maintain local state; we mirror the Engine.
+      _audioHandler.playbackState.listen((state) {
+        notifyListeners();
+      });
+      
+      _audioHandler.mediaItem.listen((item) {
+        notifyListeners();
+      });
+    } catch (e, stack) {
+      CrashLogger.log("Provider Init Error", stack);
+    }
   }
 
   Future<void> _loadLibrary() async {
-    _library = await _dbService.getAllTracks();
-    notifyListeners();
+    try {
+      _library = await _dbService.getAllTracks();
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Library Load Error: $e");
+    }
   }
 
   Future<void> scanFiles(String rootPath) async {
@@ -71,8 +62,8 @@ class PlayerProvider extends ChangeNotifier {
       List<String> paths = [];
       String scanPath = rootPath;
       
+      // Auto-detect Music folder on Android
       if (Platform.isAndroid && scanPath.isEmpty) {
-         // Default to Music folder if no path provided
          if (await _scanner.requestPermissions()) {
             scanPath = _scanner.androidMusicPath;
          }
@@ -82,17 +73,15 @@ class PlayerProvider extends ChangeNotifier {
          paths = await _scanner.scanDirectory(scanPath);
       }
 
-      // Metadata Extraction (Background Isolate)
+      // Heavy metadata parsing in background Isolate
       final newTracks = await compute(_scanAndExtractMetadata, paths);
 
-      // Save to DB
       await _dbService.clearLibrary();
       await _dbService.saveTracks(newTracks);
       _library = newTracks;
-      _isQueueSynced = false; // Reset sync flag on new scan
       
-    } catch (e) {
-      // debugPrint("Scan failed: $e");
+    } catch (e, stack) {
+      CrashLogger.log("Scan Error", stack);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -100,33 +89,30 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> playTrack(TrackModel track) async {
-    final index = _library.indexOf(track);
-    if (index == -1) return;
+    try {
+      final index = _library.indexOf(track);
+      if (index == -1) return;
 
-    // Only update queue if library changed or not synced
-    // This prevents background service kill/restart on track change
-    if (!_isQueueSynced) {
+      // Create Queue from Library
+      // Optimization: Only update queue if it's different? 
+      // For stability, we'll just update it. The Engine handles diffing.
       final queue = _library.map((t) => MediaItem(
         id: t.path,
         album: t.album,
         title: t.title,
         artist: t.artist,
+        title: t.title,
+        artist: t.artist,
         duration: t.duration != null ? Duration(milliseconds: t.duration!.toInt()) : null,
-        artUri: Uri.file(t.path),
+        // artUri: Uri.file(t.path), // Disabled to prevent Notification Bitmap crash
       )).toList();
 
       await _audioHandler.updateQueue(queue);
-      _isQueueSynced = true;
+      await _audioHandler.skipToQueueItem(index);
+      await _audioHandler.play();
+    } catch (e, stack) {
+      CrashLogger.log("PlayTrack Error", stack);
     }
-
-    await _audioHandler.skipToQueueItem(index);
-    await _audioHandler.play();
-    
-    // Update Overlay
-    // Overlay disabled
-    /*
-    if (Platform.isAndroid) { ... }
-    */
   }
 
   Future<void> togglePlay() async {
@@ -138,7 +124,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 }
 
-// Top-level function for Isolate
+// Background Isolate Function (Kept pure and outside class)
 List<TrackModel> _scanAndExtractMetadata(List<String> paths) {
   List<TrackModel> tracks = [];
   
@@ -160,15 +146,13 @@ List<TrackModel> _scanAndExtractMetadata(List<String> paths) {
          duration = metadata.duration?.inMilliseconds.toDouble() ?? 0.0;
       } catch (_) { }
 
-      // 2. Fallback: Parse filename (Artist - Title.mp3)
+      // 2. Fallback: Parse filename
       if ((artist == "Unknown Artist" || artist.isEmpty) && name.contains("-")) {
          final parts = name.split(RegExp(r'\s*-\s*'));
          if (parts.length >= 2) {
            artist = parts[0].trim();
-           // Only update title if it's still the filename
            if (title == name) {
              String tempTitle = parts.sublist(1).join(" - ").trim();
-             // Remove extension
              final lastDot = tempTitle.lastIndexOf('.');
              if (lastDot != -1) {
                tempTitle = tempTitle.substring(0, lastDot);
@@ -178,12 +162,6 @@ List<TrackModel> _scanAndExtractMetadata(List<String> paths) {
          }
       }
       
-      // Clean extension from title if still present
-      if (title.toLowerCase().endsWith(".mp3") || title.toLowerCase().endsWith(".flac")) {
-         final lastDot = title.lastIndexOf('.');
-         if (lastDot != -1) title = title.substring(0, lastDot);
-      }
-
       tracks.add(TrackModel()
         ..path = p
         ..title = title

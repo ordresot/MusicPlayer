@@ -1,50 +1,66 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
+
+// Internal Service Imports
 import 'theme/cyber_theme.dart';
+import 'services/audio_handler.dart'; 
+import 'services/crash_logger.dart';
 import 'providers/player_provider.dart';
+
+// Screens
 import 'screens/home_screen.dart';
 import 'widgets/system_dynamic_island.dart';
-import 'services/audio_handler.dart'; // Import the handler
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  WakelockPlus.enable(); // Keep CPU awake
-  MediaKit.ensureInitialized();
-  await initAudioService(); // Initialize Singleton Audio Handler
-
-  
-  // Desktop Window Management
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    await windowManager.ensureInitialized();
-    WindowOptions windowOptions = const WindowOptions(
-      size: Size(1200, 800),
-      center: true,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.hidden,
-    );
+  // Global Error Trap (The Black Box)
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
     
-    windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
-  }
+    // Initialize Native Media Engine
+    MediaKit.ensureInitialized();
+    
+    // Initialize Audio Service (Background & Notifications)
+    await initAudioService();
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => PlayerProvider()),
-      ],
-      child: const CyberMusicApp(),
-    ),
-  );
+    // Desktop: Window Management
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      await windowManager.ensureInitialized();
+      WindowOptions windowOptions = const WindowOptions(
+        size: Size(1200, 800),
+        center: true,
+        backgroundColor: Colors.transparent,
+        skipTaskbar: false,
+        titleBarStyle: TitleBarStyle.hidden,
+      );
+      
+      windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    }
+
+    // Launch Application
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => PlayerProvider()),
+        ],
+        child: const CyberMusicApp(),
+      ),
+    );
+
+  }, (error, stack) {
+    // Catch-All for Fatal Errors
+    debugPrint("🔥 FATAL ERROR: $error");
+    CrashLogger.log(error, stack);
+  });
 }
 
-// Overlay Entry Point
+// Overlay Entry Point (Background/PiP)
 @pragma("vm:entry-point")
 void overlayMain() {
   WidgetsFlutterBinding.ensureInitialized();
