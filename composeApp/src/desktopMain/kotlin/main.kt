@@ -21,6 +21,10 @@ class DesktopSongRepository : SongRepository {
     override suspend fun getSongs(): List<Song> {
         return emptyList()
     }
+
+    override suspend fun loadFromFolder(uriString: String): List<Song> {
+        return emptyList()
+    }
 }
 
 class DesktopAudioPlayer : AudioPlayer {

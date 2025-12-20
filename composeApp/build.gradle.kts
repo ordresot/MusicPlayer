@@ -34,6 +34,7 @@ kotlin {
         val androidMain by getting {
             dependencies {
                 implementation(libs.androidx.activity.compose)
+                implementation(libs.documentfile)
                 implementation(libs.media3.exoplayer)
                 implementation(libs.media3.session)
                 implementation(libs.media3.ui)

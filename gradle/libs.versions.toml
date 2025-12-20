@@ -11,7 +11,10 @@ exoplayer = "2.19.1" # Legacy or Media3? Use Media3 usually: 1.2.0
 media3 = "1.4.1"
 vlcj = "4.8.3"
 
+documentfile = "1.0.1"
+
 [libraries]
+documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 # Plugin deps
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "android-gradle-plugin" }

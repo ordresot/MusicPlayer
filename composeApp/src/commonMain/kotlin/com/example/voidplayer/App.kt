@@ -29,6 +29,7 @@ import com.example.voidplayer.model.Song
 import com.example.voidplayer.player.AudioPlayer
 import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.TileMode
 
 
 // --- Cyberpunk Theme Colors ---
@@ -50,15 +51,43 @@ val CyberpunkScheme = darkColorScheme(
 @Composable
 fun App(
     repository: SongRepository,
-    player: AudioPlayer
+    player: AudioPlayer,
+    pickedFolderUri: State<String?> = mutableStateOf(null),
+    statusMessage: String = "",
+    onPickFolder: () -> Unit = {}
 ) {
     MaterialTheme(colorScheme = CyberpunkScheme) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val isWideScreen = maxWidth > 600.dp
-                MainContent(repository, player, isWideScreen)
+                AnimatedCyberBackground()
+                MainContent(repository, player, isWideScreen, pickedFolderUri, statusMessage, onPickFolder)
             }
         }
+    }
+}
+
+@Composable
+fun AnimatedCyberBackground() {
+    val infiniteTransition = rememberInfiniteTransition()
+    val offset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(20000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        )
+    )
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        drawRect(
+            brush = Brush.linearGradient(
+                colors = listOf(DeepBlack, DarkSurface, Color(0xFF0A0A15)),
+                start = androidx.compose.ui.geometry.Offset(offset, offset),
+                end = androidx.compose.ui.geometry.Offset(size.width + offset, size.height + offset),
+                tileMode = TileMode.Mirror
+            )
+        )
     }
 }
 
@@ -66,71 +95,136 @@ fun App(
 fun MainContent(
     repository: SongRepository,
     player: AudioPlayer,
-    isWideScreen: Boolean
+    isWideScreen: Boolean,
+    pickedFolderUri: State<String?>,
+    statusMessage: String,
+    onPickFolder: () -> Unit
 ) {
     var songs by remember { mutableStateOf(emptyList<Song>()) }
     val currentSong by player.currentSong.collectAsState()
     val error by player.error.collectAsState()
 
-    // Load songs once
-    LaunchedEffect(Unit) {
+    // Load songs initially or when folder changes
+    LaunchedEffect(pickedFolderUri.value) {
         try {
-            songs = repository.getSongs()
+            if (pickedFolderUri.value != null) {
+                // Load from specific folder
+                songs = repository.loadFromFolder(pickedFolderUri.value!!)
+                println("VoidPlayer: App loaded from folder: ${songs.size} songs")
+            } else {
+                // Default load
+                songs = repository.getSongs()
+                println("VoidPlayer: App loaded default: ${songs.size} songs")
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
+    
+    // Log on every recomposition
+    println("VoidPlayer: App UI Recomposed. Songs size: ${songs.size}")
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = if (currentSong != null) 60.dp else 20.dp) // Space for Island
+                .padding(top = if (currentSong != null) 70.dp else 20.dp)
         ) {
-            // Header
-            Text(
-                text = "VOID PLAYER // V.1.0",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
-                ),
-                color = NeonCyan,
-                modifier = Modifier
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .align(if (isWideScreen) Alignment.CenterHorizontally else Alignment.Start)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "VOID PLAYER // V.DEBUG", // Visual check
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp
+                    ),
+                    color = NeonCyan
+                )
+                
+                // Folder Icon Button
+                IconButton(onClick = onPickFolder) {
+                    Text("📂", fontSize = 24.sp)
+                }
+            }
 
-            // Error Banner
             if (error != null) {
                 ErrorBanner(error!!)
             }
 
-            // Song List
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
-                items(songs, key = { it.id }) { song ->
-                    val isPlaying = song.id == currentSong?.id
-                    CyberListItem(
-                        song = song,
-                        isPlaying = isPlaying,
-                        onClick = { player.play(song) }
-                    )
+                if (songs.isEmpty()) {
+                    item {
+                        EmptyState(onPickFolder, statusMessage)
+                    }
+                } else {
+                    items(songs, key = { it.id }) { song ->
+                        val isPlaying = song.id == currentSong?.id
+                        CyberListItem(
+                            song = song,
+                            isPlaying = isPlaying,
+                            onClick = { player.play(song) }
+                        )
+                    }
                 }
             }
         }
 
-        // Dynamic Island Overlay
         if (currentSong != null) {
             DynamicIsland(
                 modifier = Modifier.align(Alignment.TopCenter),
                 song = currentSong!!,
                 player = player
             )
+        }
+    }
+}
+
+@Composable
+fun EmptyState(onPickFolder: () -> Unit, statusMessage: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "NO SONGS FOUND",
+            color = Color.Gray,
+            style = MaterialTheme.typography.titleMedium,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Ensure you have audio files > 10s and have granted permissions.",
+            color = Color.DarkGray,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        // Show status message for debugging
+        if (statusMessage.isNotBlank()) {
+            Text(
+                text = statusMessage,
+                color = Color.Yellow,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onPickFolder,
+            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = DeepBlack),
+            shape = CutCornerShape(8.dp)
+        ) {
+            Text("CLICK ME (DEBUG MODE)", fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -157,11 +251,13 @@ fun CyberListItem(
 ) {
     val borderColor = if (isPlaying) NeonCyan else Color.Transparent
     val backgroundColor = if (isPlaying) Color(0xFF0F2022) else Color.Transparent
-
+    
+    // Entrance Animation (Simple fade in for now as list builds)
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .clip(CutCornerShape(bottomEnd = 16.dp))
             .border(1.dp, borderColor, CutCornerShape(bottomEnd = 16.dp))
             .background(backgroundColor)
@@ -176,8 +272,7 @@ fun CyberListItem(
             contentAlignment = Alignment.Center
         ) {
             if (isPlaying) {
-                // Animated Indicator could go here
-                Text("▶", color = Color.White)
+                LiveWaveform(color = Color.White, barCount = 3, heightRange = 5..20)
             } else {
                 Text("♫", color = Color.LightGray)
             }
@@ -218,17 +313,16 @@ fun DynamicIsland(
 ) {
     val isPlaying by player.isPlaying.collectAsState()
     
-    // Animate expansion
-    val width by animateDpAsState(targetValue = if (isPlaying) 350.dp else 200.dp)
-    val height by animateDpAsState(targetValue = if (isPlaying) 120.dp else 40.dp)
-    val cornerRadius by animateDpAsState(targetValue = if (isPlaying) 24.dp else 20.dp)
+    val width by animateDpAsState(targetValue = if (isPlaying) 350.dp else 200.dp, animationSpec = spring(stiffness = Spring.StiffnessLow))
+    val height by animateDpAsState(targetValue = if (isPlaying) 140.dp else 40.dp, animationSpec = spring(stiffness = Spring.StiffnessLow))
+    val cornerRadius by animateDpAsState(targetValue = if (isPlaying) 28.dp else 20.dp)
 
     Box(
         modifier = modifier
             .padding(top = 10.dp)
             .size(width = width, height = height)
             .shadow(
-                elevation = 16.dp, 
+                elevation = 20.dp, 
                 shape = RoundedCornerShape(cornerRadius),
                 ambientColor = NeonCyan,
                 spotColor = NeonMagenta
@@ -255,7 +349,7 @@ fun CompactIslandContent(song: Song) {
          Text(
             text = "PAUSED",
             color = NeonMagenta,
-            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace)
+            style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace, letterSpacing = 4.sp)
         )
     }
 }
@@ -271,13 +365,11 @@ fun ExpandedIslandContent(song: Song, player: AudioPlayer) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Song Info
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-             // Scrolling text if needed
              Column(modifier = Modifier.weight(1f)) {
                  Text(
                     text = song.title,
@@ -295,28 +387,15 @@ fun ExpandedIslandContent(song: Song, player: AudioPlayer) {
                 )
              }
              
-             // Visualizer Bars (Static Simulation)
-             Row(verticalAlignment = Alignment.Bottom) {
-                 repeat(4) {
-                     Box(
-                         modifier = Modifier
-                             .padding(horizontal = 2.dp)
-                             .width(4.dp)
-                             .height((10..20).random().dp) // Simulate movement
-                             .background(NeonCyan)
-                     )
-                 }
-             }
+             LiveWaveform(color = NeonCyan, barCount = 5, heightRange = 8..24)
         }
         
-        // Progress
         CustomProgressBar(
             current = currentPosition,
             total = song.duration,
             onSeek = { player.seekTo(it) }
         )
         
-        // Controls
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -324,6 +403,32 @@ fun ExpandedIslandContent(song: Song, player: AudioPlayer) {
              ControlIcon(text = "⏮") { /* Prev */ }
              ControlIcon(text = "⏸", isHighlight = true) { player.pause() }
              ControlIcon(text = "⏭") { /* Next */ }
+        }
+    }
+}
+
+@Composable
+fun LiveWaveform(color: Color, barCount: Int, heightRange: IntRange) {
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        val infiniteTransition = rememberInfiniteTransition()
+        repeat(barCount) { index ->
+            val height by infiniteTransition.animateFloat(
+                initialValue = heightRange.first.toFloat(),
+                targetValue = heightRange.last.toFloat(),
+                animationSpec = infiniteRepeatable(
+                    animation = tween(300 + (index * 50), easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                )
+            )
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(height.dp)
+                    .background(color, RoundedCornerShape(2.dp))
+            )
         }
     }
 }
@@ -337,7 +442,7 @@ fun CustomProgressBar(current: Long, total: Long, onSeek: (Long) -> Unit) {
             .fillMaxWidth()
             .height(4.dp)
             .background(Color.DarkGray, RoundedCornerShape(2.dp))
-            .clickable { /* logic to seek on tap could be complex without slider width knowledge */ }
+            .clickable { /* logic to seek on tap */ }
     ) {
         Box(
             modifier = Modifier
