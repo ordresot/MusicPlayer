@@ -33,6 +33,8 @@ class DesktopAudioPlayer : AudioPlayer {
     private val _currentSong = MutableStateFlow<Song?>(null)
     override val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
 
+    override val error: StateFlow<String?> = MutableStateFlow(null)
+
     override fun play(song: Song) {}
     override fun pause() {}
     override fun resume() {}

@@ -29,6 +29,9 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
     private val _currentSong = MutableStateFlow<Song?>(null)
     override val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
 
+    private val _error = MutableStateFlow<String?>(null)
+    override val error: StateFlow<String?> = _error.asStateFlow()
+
     private var progressJob: Job? = null
 
     init {
@@ -37,9 +40,17 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
                 _isPlaying.value = isPlaying
                 if (isPlaying) {
                     startProgressUpdate()
+                    _error.value = null // Clear error on successful play
                 } else {
                     stopProgressUpdate()
                 }
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                super.onPlayerError(error)
+                _error.value = "Playback Error: ${error.message}"
+                _isPlaying.value = false
+                stopProgressUpdate()
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {

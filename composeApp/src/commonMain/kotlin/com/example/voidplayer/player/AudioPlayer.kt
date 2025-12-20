@@ -7,6 +7,7 @@ interface AudioPlayer {
     val isPlaying: StateFlow<Boolean>
     val currentPosition: StateFlow<Long>
     val currentSong: StateFlow<Song?>
+    val error: StateFlow<String?>
 
     fun play(song: Song)
     fun pause()
