@@ -1,17 +1,12 @@
 package com.example.voidplayer.player
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.annotation.OptIn
-import androidx.core.app.NotificationCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import com.example.voidplayer.MainActivity
@@ -142,6 +137,21 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         }
     }
 
+    override fun seekTo(position: Long) {
+        player.seekTo(position)
+        _currentPosition.value = player.currentPosition
+    }
+
+    override fun seekForward(millis: Long) {
+        val newPos = (player.currentPosition + millis).coerceAtMost(player.duration)
+        seekTo(newPos)
+    }
+
+    override fun seekBackward(millis: Long) {
+        val newPos = (player.currentPosition - millis).coerceAtLeast(0L)
+        seekTo(newPos)
+    }
+
     private fun startProgressUpdate() {
         stopProgressUpdate()
         progressJob = scope.launch {
@@ -156,8 +166,6 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         progressJob?.cancel()
         progressJob = null
     }
-
-    override fun seekTo(position: Long) { player.seekTo(position) }
     
     override fun cleanUp() {
         mediaSession?.release()

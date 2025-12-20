@@ -3,20 +3,20 @@ package com.example.voidplayer
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -30,14 +30,11 @@ import androidx.compose.ui.unit.sp
 import com.example.voidplayer.data.SongRepository
 import com.example.voidplayer.model.Song
 import com.example.voidplayer.player.AudioPlayer
-import kotlinx.coroutines.delay
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.geometry.Offset
-
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
 
 // --- Cyberpunk Theme Colors ---
 val NeonCyan = Color(0xFF00F0FF)
@@ -65,10 +62,9 @@ fun App(
 ) {
     MaterialTheme(colorScheme = CyberpunkScheme) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val isWideScreen = maxWidth > 600.dp
+            Box(modifier = Modifier.fillMaxSize()) {
                 AnimatedCyberBackground()
-                MainContent(repository, player, isWideScreen, pickedFolderUri, statusMessage, onPickFolder)
+                MainContent(repository, player, pickedFolderUri, statusMessage, onPickFolder)
             }
         }
     }
@@ -81,7 +77,7 @@ fun AnimatedCyberBackground() {
         initialValue = 0f,
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(20000, easing = LinearEasing),
+            animation = tween(40000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         )
     )
@@ -95,6 +91,24 @@ fun AnimatedCyberBackground() {
                 tileMode = TileMode.Mirror
             )
         )
+        
+        val gridSpacing = 50.dp.toPx()
+        for (x in 0..size.width.toInt() step gridSpacing.toInt()) {
+            drawLine(
+                color = NeonCyan.copy(alpha = 0.05f),
+                start = Offset(x.toFloat(), 0f),
+                end = Offset(x.toFloat(), size.height),
+                strokeWidth = 1f
+            )
+        }
+        for (y in 0..size.height.toInt() step gridSpacing.toInt()) {
+            drawLine(
+                color = NeonCyan.copy(alpha = 0.05f),
+                start = Offset(0f, y.toFloat()),
+                end = Offset(size.width, y.toFloat()),
+                strokeWidth = 1f
+            )
+        }
     }
 }
 
@@ -102,7 +116,6 @@ fun AnimatedCyberBackground() {
 fun MainContent(
     repository: SongRepository,
     player: AudioPlayer,
-    isWideScreen: Boolean,
     pickedFolderUri: State<String?>,
     statusMessage: String,
     onPickFolder: () -> Unit
@@ -110,6 +123,10 @@ fun MainContent(
     var songs by remember { mutableStateOf(emptyList<Song>()) }
     val currentSong by player.currentSong.collectAsState()
     val error by player.error.collectAsState()
+    var isExpanded by remember { mutableStateOf(false) }
+
+    val dominantColor = currentSong?.coverArt?.let { getDominantColor(it) } ?: NeonCyan
+    val animatedDominantColor by animateColorAsState(dominantColor, animationSpec = tween(1000))
 
     LaunchedEffect(pickedFolderUri.value) {
         try {
@@ -131,48 +148,33 @@ fun MainContent(
                 .fillMaxSize()
                 .padding(top = 20.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Header(onPickFolder, animatedDominantColor)
+
+            AnimatedVisibility(
+                visible = error != null,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
             ) {
-                Text(
-                    text = "VOID PLAYER",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp
-                    ),
-                    color = NeonCyan
-                )
-                
-                IconButton(onClick = onPickFolder) {
-                    Text("📂", fontSize = 24.sp)
-                }
+                error?.let { ErrorBanner(it) }
             }
 
-            if (error != null) {
-                ErrorBanner(error!!)
-            }
-
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(bottom = 120.dp)
-            ) {
+            Box(modifier = Modifier.weight(1f)) {
                 if (songs.isEmpty()) {
-                    item {
-                        EmptyState(onPickFolder, statusMessage)
-                    }
+                    EmptyState(onPickFolder, statusMessage)
                 } else {
-                    items(songs, key = { it.id }) { song ->
-                        val isPlaying = song.id == currentSong?.id
-                        CyberListItem(
-                            song = song,
-                            isPlaying = isPlaying,
-                            onClick = { player.play(song) }
-                        )
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(bottom = 140.dp, top = 10.dp)
+                    ) {
+                        items(songs, key = { it.id }) { song ->
+                            val isPlaying = song.id == currentSong?.id
+                            CyberListItem(
+                                song = song,
+                                isPlaying = isPlaying,
+                                activeColor = animatedDominantColor,
+                                onClick = { player.play(song) }
+                            )
+                        }
                     }
                 }
             }
@@ -180,48 +182,50 @@ fun MainContent(
 
         if (currentSong != null) {
             DynamicIsland(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
+                modifier = Modifier.align(Alignment.BottomCenter),
                 song = currentSong!!,
-                player = player
+                player = player,
+                isExpanded = isExpanded,
+                accentColor = animatedDominantColor,
+                onToggleExpand = { isExpanded = !isExpanded }
             )
         }
     }
 }
 
 @Composable
-fun EmptyState(onPickFolder: () -> Unit, statusMessage: String) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+fun Header(onPickFolder: () -> Unit, accentColor: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "NO SONGS FOUND",
-            color = Color.Gray,
-            style = MaterialTheme.typography.titleMedium,
-            fontFamily = FontFamily.Monospace
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(
-            onClick = onPickFolder,
-            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = DeepBlack),
-            shape = CutCornerShape(8.dp)
-        ) {
-            Text("SELECT MUSIC FOLDER", fontWeight = FontWeight.Bold)
+        Column {
+            Text(
+                text = "VOID PLAYER",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
+                ),
+                color = accentColor
+            )
+            Text(
+                text = "// SYSTEM ACTIVE",
+                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                color = NeonMagenta.copy(alpha = 0.7f)
+            )
         }
-    }
-}
-
-@Composable
-fun ErrorBanner(message: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .border(1.dp, Color.Red, CutCornerShape(8.dp))
-            .background(Color(0x33FF0000))
-            .padding(12.dp)
-    ) {
-        Text(text = "ERROR: $message", color = Color.Red, fontFamily = FontFamily.Monospace)
+        
+        IconButton(
+            onClick = onPickFolder,
+            modifier = Modifier
+                .clip(CutCornerShape(8.dp))
+                .background(accentColor.copy(alpha = 0.1f))
+                .border(1.dp, accentColor.copy(alpha = 0.3f), CutCornerShape(8.dp))
+        ) {
+            Text("📂", fontSize = 20.sp)
+        }
     }
 }
 
@@ -229,43 +233,66 @@ fun ErrorBanner(message: String) {
 fun CyberListItem(
     song: Song,
     isPlaying: Boolean,
+    activeColor: Color,
     onClick: () -> Unit
 ) {
-    val borderColor = if (isPlaying) NeonCyan else Color.Transparent
-    val backgroundColor = if (isPlaying) Color(0xFF0F2022) else Color.Transparent
+    val infiniteTransition = rememberInfiniteTransition()
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = SineEaseInOut),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isPlaying) activeColor.copy(alpha = 0.1f) else Color.Transparent,
+        animationSpec = tween(400)
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isPlaying) activeColor.copy(alpha = glowAlpha) else Color.Transparent,
+        animationSpec = tween(400)
+    )
     
+    val scale by animateFloatAsState(if (isPlaying) 1.02f else 1f)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clip(CutCornerShape(bottomEnd = 16.dp))
-            .border(1.dp, borderColor, CutCornerShape(bottomEnd = 16.dp))
             .background(backgroundColor)
+            .border(1.dp, borderColor, CutCornerShape(bottomEnd = 16.dp))
             .clickable(onClick = onClick)
-            .padding(16.dp),
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(50.dp)
-                .background(Color.DarkGray, RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp)),
+                .size(54.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.DarkGray),
             contentAlignment = Alignment.Center
         ) {
             if (song.coverArt != null) {
-                 Image(
+                Image(
                     bitmap = song.coverArt.toImageBitmap(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                Text("♫", color = Color.LightGray)
+                Text("♫", color = Color.LightGray, fontSize = 24.sp)
             }
             
             if (isPlaying) {
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
-                LiveWaveform(color = NeonCyan, barCount = 3, heightRange = 5..20)
+                LiveWaveform(color = activeColor, barCount = 3, heightRange = 8..24)
             }
         }
         
@@ -274,14 +301,17 @@ fun CyberListItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                color = if (isPlaying) NeonCyan else Color.White,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                ),
+                color = if (isPlaying) activeColor else Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = song.artist,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                 color = Color.Gray,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -300,125 +330,337 @@ fun CyberListItem(
 fun DynamicIsland(
     modifier: Modifier = Modifier,
     song: Song,
-    player: AudioPlayer
+    player: AudioPlayer,
+    isExpanded: Boolean,
+    accentColor: Color,
+    onToggleExpand: () -> Unit
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
     val isPlaying by player.isPlaying.collectAsState()
     val isShuffle by player.isShuffle.collectAsState()
     val repeatMode by player.repeatMode.collectAsState()
     
-    val width by animateDpAsState(targetValue = if (isExpanded) 360.dp else 260.dp, animationSpec = spring(stiffness = Spring.StiffnessLow))
-    val height by animateDpAsState(targetValue = if (isExpanded) 140.dp else 60.dp, animationSpec = spring(stiffness = Spring.StiffnessLow))
-    val cornerRadius by animateDpAsState(targetValue = 30.dp)
+    val width by animateDpAsState(
+        targetValue = if (isExpanded) 400.dp else 220.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+    )
+    val height by animateDpAsState(
+        targetValue = if (isExpanded) 800.dp else 64.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+    )
+    val bottomPadding by animateDpAsState(if (isExpanded) 0.dp else 32.dp)
+    val cornerRadius by animateDpAsState(if (isExpanded) 0.dp else 32.dp)
 
     Box(
         modifier = modifier
+            .padding(bottom = bottomPadding)
             .size(width = width, height = height)
-            .shadow(20.dp, RoundedCornerShape(cornerRadius))
+            .shadow(if (isExpanded) 0.dp else 24.dp, RoundedCornerShape(cornerRadius), spotColor = accentColor)
             .clip(RoundedCornerShape(cornerRadius))
             .background(Color.Black)
-            .border(1.dp, Color.DarkGray, RoundedCornerShape(cornerRadius))
-            .clickable { isExpanded = !isExpanded }
-            .padding(12.dp),
-        contentAlignment = Alignment.TopCenter
+            .then(if (!isExpanded) Modifier.border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(cornerRadius)) else Modifier)
+            .clickable { onToggleExpand() }
+            .padding(if (isExpanded) 0.dp else 12.dp)
     ) {
-        Column {
+        AnimatedContent(
+            targetState = isExpanded,
+            transitionSpec = {
+                (fadeIn(tween(400, delayMillis = 100)) + slideInVertically(initialOffsetY = { it / 2 })) togetherWith 
+                (fadeOut(tween(200)) + slideOutVertically(targetOffsetY = { it / 2 }))
+            }
+        ) { expanded ->
+            if (expanded) {
+                FullScreenPlayer(song, player, isPlaying, isShuffle, repeatMode, accentColor, onToggleExpand)
+            } else {
+                CompactIsland(song, isPlaying, accentColor)
+            }
+        }
+    }
+}
+
+@Composable
+fun FullScreenPlayer(
+    song: Song,
+    player: AudioPlayer,
+    isPlaying: Boolean,
+    isShuffle: Boolean,
+    repeatMode: AudioPlayer.RepeatMode,
+    accentColor: Color,
+    onCollapse: () -> Unit
+) {
+    val currentPosition by player.currentPosition.collectAsState()
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
+        val screenHeight = maxHeight
+        val screenWidth = maxWidth
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.DarkGray)
-                ) {
-                    if (song.coverArt != null) {
-                        Image(
-                            bitmap = song.coverArt.toImageBitmap(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                IconButton(onClick = onCollapse) {
+                    Text("▼", color = Color.White, fontSize = 20.sp)
+                }
+                Text(
+                    text = "NOW PLAYING",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 4.sp
+                    ),
+                    color = Color.Gray
+                )
+                IconButton(onClick = { }) {
+                    Text("⋮", color = Color.White, fontSize = 20.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(0.1f))
+
+            val artSize = if (screenHeight < 600.dp) (screenWidth * 0.5f) else (screenWidth * 0.8f)
+            Box(
+                modifier = Modifier
+                    .size(artSize)
+                    .shadow(40.dp, RoundedCornerShape(24.dp), spotColor = accentColor)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(DarkSurface)
+                    .border(1.dp, accentColor.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+            ) {
+                if (song.coverArt != null) {
+                    Image(
+                        bitmap = song.coverArt.toImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("♫", color = Color.DarkGray, fontSize = (artSize.value / 3).sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(0.1f))
+
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = song.title,
+                            color = Color.White,
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = song.artist,
+                            color = accentColor,
+                            style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
+                            maxLines = 1
                         )
                     }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = song.title,
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = song.artist,
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1
-                    )
-                }
-
-                if (!isExpanded) {
-                    LiveWaveform(color = NeonCyan, barCount = 3, heightRange = 4..16)
-                } else {
-                    IconButton(onClick = { player.toggleShuffle() }) {
-                        Text("🔀", color = if (isShuffle) NeonCyan else Color.Gray, fontSize = 16.sp)
+                    IconButton(onClick = { }) {
+                        Text("♡", color = Color.Gray, fontSize = 24.sp)
                     }
                 }
             }
 
-            if (isExpanded) {
-                Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Column {
+                Slider(
+                    value = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f,
+                    onValueChange = { player.seekTo((it * song.duration).toLong()) },
+                    colors = SliderDefaults.colors(
+                        thumbColor = accentColor,
+                        activeTrackColor = accentColor,
+                        inactiveTrackColor = Color.DarkGray
+                    )
+                )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { player.toggleRepeat() }) {
-                         Text(
-                             text = when(repeatMode) {
-                                 AudioPlayer.RepeatMode.OFF -> "🔁"
-                                 AudioPlayer.RepeatMode.ALL -> "🔁"
-                                 AudioPlayer.RepeatMode.ONE -> "🔂"
-                             },
-                             color = if (repeatMode != AudioPlayer.RepeatMode.OFF) NeonCyan else Color.Gray,
-                             fontSize = 18.sp
-                         )
-                    }
-                    IconButton(onClick = { player.previous() }) {
-                        Text("⏮", color = Color.White, fontSize = 24.sp)
-                    }
-                    IconButton(onClick = { if (isPlaying) player.pause() else player.resume() }) {
-                        Text(if (isPlaying) "⏸" else "▶", color = NeonCyan, fontSize = 28.sp)
-                    }
-                    IconButton(onClick = { player.next() }) {
-                        Text("⏭", color = Color.White, fontSize = 24.sp)
-                    }
-                    IconButton(onClick = { isExpanded = false }) {
-                        Text("▼", color = Color.Gray, fontSize = 16.sp)
-                    }
-                }
-                
-                val currentPosition by player.currentPosition.collectAsState()
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(Color.DarkGray)
-                ) {
-                    val progress = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(progress)
-                            .fillMaxHeight()
-                            .background(NeonCyan)
-                    )
+                    Text(formatTime(currentPosition), color = Color.Gray, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    Text(formatTime(song.duration), color = Color.Gray, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
+
+            Spacer(modifier = Modifier.weight(0.1f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CyberActionButton(
+                    icon = "🔀",
+                    isActive = isShuffle,
+                    accentColor = accentColor,
+                    onClick = { player.toggleShuffle() }
+                )
+                
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    IconButton(onClick = { player.previous() }) {
+                        Text("⏮", color = Color.White, fontSize = 32.sp, modifier = Modifier.glow(Color.White))
+                    }
+                    
+                    GlowPlayButton(
+                        isPlaying = isPlaying,
+                        color = accentColor,
+                        onClick = { if (isPlaying) player.pause() else player.resume() }
+                    )
+                    
+                    IconButton(onClick = { player.next() }) {
+                        Text("⏭", color = Color.White, fontSize = 32.sp, modifier = Modifier.glow(Color.White))
+                    }
+                }
+
+                CyberActionButton(
+                    icon = if (repeatMode == AudioPlayer.RepeatMode.ONE) "🔂" else "🔁",
+                    isActive = repeatMode != AudioPlayer.RepeatMode.OFF,
+                    accentColor = accentColor,
+                    onClick = { player.toggleRepeat() }
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(0.2f))
+        }
+    }
+}
+
+@Composable
+fun CyberActionButton(
+    icon: String,
+    isActive: Boolean = false,
+    accentColor: Color,
+    onClick: () -> Unit
+) {
+    val scale by animateFloatAsState(if (isActive) 1.2f else 1f)
+    
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .clip(CutCornerShape(12.dp))
+            .background(if (isActive) accentColor.copy(alpha = 0.1f) else Color.Transparent)
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    if (isActive) listOf(accentColor, Color.Transparent) else listOf(Color.Gray.copy(alpha = 0.3f), Color.Transparent)
+                ),
+                shape = CutCornerShape(12.dp)
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = icon,
+            color = if (isActive) accentColor else Color.White.copy(alpha = 0.7f),
+            fontSize = 20.sp,
+            modifier = Modifier.then(if (isActive) Modifier.glow(accentColor) else Modifier)
+        )
+    }
+}
+
+@Composable
+fun GlowPlayButton(
+    isPlaying: Boolean,
+    color: Color,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (isPressed) 0.9f else 1f)
+
+    Box(
+        modifier = Modifier
+            .size(80.dp)
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .shadow(if (isPressed) 10.dp else 30.dp, CircleShape, spotColor = color)
+            .background(Color.Black, CircleShape)
+            .border(2.dp, color.copy(alpha = 0.5f), CircleShape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(
+                color = color.copy(alpha = 0.1f),
+                radius = size.minDimension / 2 + 8.dp.toPx(),
+                style = Stroke(width = 1.dp.toPx())
+            )
+        }
+        
+        Text(
+            text = if (isPlaying) "⏸" else "▶",
+            color = color,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+fun Modifier.glow(color: Color): Modifier = this.drawBehind {
+    drawCircle(
+        color = color.copy(alpha = 0.2f),
+        radius = size.maxDimension / 1.5f,
+        center = center
+    )
+}
+
+@Composable
+fun CompactIsland(song: Song, isPlaying: Boolean, accentColor: Color) {
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.DarkGray)
+        ) {
+            if (song.coverArt != null) {
+                Image(
+                    bitmap = song.coverArt.toImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = song.title,
+                color = Color.White,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        if (isPlaying) {
+            LiveWaveform(color = accentColor, barCount = 3, heightRange = 6..18)
+        } else {
+            Text("PAUSED", color = NeonMagenta, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -427,7 +669,7 @@ fun DynamicIsland(
 fun LiveWaveform(color: Color, barCount: Int, heightRange: IntRange) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         val infiniteTransition = rememberInfiniteTransition()
         repeat(barCount) { index ->
@@ -435,17 +677,61 @@ fun LiveWaveform(color: Color, barCount: Int, heightRange: IntRange) {
                 initialValue = heightRange.first.toFloat(),
                 targetValue = heightRange.last.toFloat(),
                 animationSpec = infiniteRepeatable(
-                    animation = tween(300 + (index * 50), easing = FastOutSlowInEasing),
+                    animation = tween(400 + (index * 100), easing = FastOutSlowInEasing),
                     repeatMode = RepeatMode.Reverse
                 )
             )
             Box(
                 modifier = Modifier
-                    .width(3.dp)
+                    .width(4.dp)
                     .height(height.dp)
-                    .background(color, CircleShape)
+                    .clip(CircleShape)
+                    .background(color)
             )
         }
+    }
+}
+
+@Composable
+fun EmptyState(onPickFolder: () -> Unit, statusMessage: String) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "NO DATA DETECTED",
+            color = Color.Gray,
+            style = MaterialTheme.typography.titleMedium,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(
+            onClick = onPickFolder,
+            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = DeepBlack),
+            shape = CutCornerShape(8.dp),
+            modifier = Modifier.height(56.dp).fillMaxWidth()
+        ) {
+            Text("INITIALIZE DISK SCAN", fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+        }
+        if (statusMessage.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(statusMessage, color = NeonMagenta.copy(alpha = 0.6f), fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+        }
+    }
+}
+
+@Composable
+fun ErrorBanner(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .border(1.dp, Color.Red, CutCornerShape(8.dp))
+            .background(Color(0x33FF0000))
+            .padding(12.dp)
+    ) {
+        Text(text = "CRITICAL ERROR: $message", color = Color.Red, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
     }
 }
 
@@ -457,5 +743,9 @@ fun formatTime(ms: Long): String {
     val totalSeconds = ms / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return "${minutes}:${if (seconds < 10) "0" else ""}${seconds}"
+    return "${minutes}:${if (seconds < 10) \"0\" else \"\"}${seconds}"
+}
+
+val SineEaseInOut = Easing { fraction ->
+    (-(kotlin.math.cos(kotlin.math.PI * fraction) - 1f) / 2f).toFloat()
 }

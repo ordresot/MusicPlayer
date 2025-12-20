@@ -20,6 +20,8 @@ interface AudioPlayer {
     fun toggleShuffle()
     fun toggleRepeat()
     fun seekTo(position: Long)
+    fun seekForward(millis: Long = 10000)
+    fun seekBackward(millis: Long = 10000)
     fun cleanUp()
 
     enum class RepeatMode {

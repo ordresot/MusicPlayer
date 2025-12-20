@@ -1,25 +1,30 @@
 package com.example.voidplayer
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
-import com.example.voidplayer.data.AndroidSongRepository
-import com.example.voidplayer.player.AndroidAudioPlayer
 
 class MainActivity : ComponentActivity() {
     
-    private lateinit var audioPlayer: AndroidAudioPlayer
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val repository = AndroidSongRepository(this)
-        audioPlayer = AndroidAudioPlayer(this)
         
+        enableEdgeToEdge()
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+
+        val app = VoidPlayerApp.instance
         val pickedFolderUri = mutableStateOf<String?>(null)
         val statusMsg = mutableStateOf("Ready")
 
@@ -27,8 +32,7 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
            if(!isGranted) {
-               statusMsg.value = "Permission Denied. Library empty."
-               android.util.Log.w("VoidPlayer", "Storage permission denied")
+               statusMsg.value = "Permission Denied"
            }
         }
         
@@ -44,9 +48,13 @@ class MainActivity : ComponentActivity() {
                     pickedFolderUri.value = uri.toString()
                 } catch(e: Exception) { 
                     statusMsg.value = "Folder Auth Failed"
-                    android.util.Log.e("VoidPlayer", "Persistable permission failed", e)
                 }
             }
+        }
+
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+            startActivity(intent)
         }
 
         val permission = if (Build.VERSION.SDK_INT >= 33) {
@@ -59,8 +67,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             App(
-                repository = repository,
-                player = audioPlayer,
+                repository = app.repository,
+                player = app.player,
                 pickedFolderUri = pickedFolderUri,
                 statusMessage = statusMsg.value,
                 onPickFolder = { 
@@ -70,10 +78,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        if (::audioPlayer.isInitialized) {
-            audioPlayer.cleanUp()
-        }
+    override fun onStop() {
+        super.onStop()
+        val intent = Intent(this, com.example.voidplayer.service.OverlayService::class.java)
+        startService(intent)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val intent = Intent(this, com.example.voidplayer.service.OverlayService::class.java)
+        stopService(intent)
     }
 }

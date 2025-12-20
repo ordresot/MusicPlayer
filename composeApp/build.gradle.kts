@@ -38,6 +38,7 @@ kotlin {
                 implementation(libs.media3.exoplayer)
                 implementation(libs.media3.session)
                 implementation(libs.media3.ui)
+                implementation(libs.androidx.palette)
             }
         }
         val desktopMain by getting {

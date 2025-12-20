@@ -6,15 +6,16 @@ androidx-activity = "1.9.3"
 androidx-core = "1.15.0"
 voyager = "1.1.0-beta03"
 koin = "4.0.0"
-on-audio-query = "3.0.0" # Check availability for KMP or use platform specific
-exoplayer = "2.19.1" # Legacy or Media3? Use Media3 usually: 1.2.0
+on-audio-query = "3.0.0" 
+exoplayer = "2.19.1"
 media3 = "1.4.1"
 vlcj = "4.8.3"
-
+palette = "1.0.0"
 documentfile = "1.0.1"
 
 [libraries]
 documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
+androidx-palette = { module = "androidx.palette:palette", version.ref = "palette" }
 # Plugin deps
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "android-gradle-plugin" }
