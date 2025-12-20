@@ -1,0 +1,7 @@
+package com.example.voidplayer.data
+
+import com.example.voidplayer.model.Song
+
+interface SongRepository {
+    suspend fun getSongs(): List<Song>
+}
