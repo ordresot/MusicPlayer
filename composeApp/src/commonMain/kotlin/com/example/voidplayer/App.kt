@@ -336,11 +336,9 @@ fun DynamicIsland(
     onToggleExpand: () -> Unit
 ) {
     val isPlaying by player.isPlaying.collectAsState()
-    val isShuffle by player.isShuffle.collectAsState()
-    val repeatMode by player.repeatMode.collectAsState()
     
     val width by animateDpAsState(
-        targetValue = if (isExpanded) 400.dp else 220.dp,
+        targetValue = if (isExpanded) 400.dp else 280.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
     )
     val height by animateDpAsState(
@@ -369,9 +367,13 @@ fun DynamicIsland(
             }
         ) { expanded ->
             if (expanded) {
-                FullScreenPlayer(song, player, isPlaying, isShuffle, repeatMode, accentColor, onToggleExpand)
+                FullScreenPlayer(song, player, accentColor, onToggleExpand)
             } else {
-                CompactIsland(song, isPlaying, accentColor)
+                val currentPosition by player.currentPosition.collectAsState()
+                CompactIsland(song, isPlaying, accentColor, 
+                    onPlayPause = { if (isPlaying) player.pause() else player.resume() },
+                    currentPosition = currentPosition
+                )
             }
         }
     }
@@ -381,12 +383,12 @@ fun DynamicIsland(
 fun FullScreenPlayer(
     song: Song,
     player: AudioPlayer,
-    isPlaying: Boolean,
-    isShuffle: Boolean,
-    repeatMode: AudioPlayer.RepeatMode,
     accentColor: Color,
     onCollapse: () -> Unit
 ) {
+    val isPlaying by player.isPlaying.collectAsState()
+    val isShuffle by player.isShuffle.collectAsState()
+    val repeatMode by player.repeatMode.collectAsState()
     val currentPosition by player.currentPosition.collectAsState()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize().background(DeepBlack)) {
@@ -622,45 +624,74 @@ fun Modifier.glow(color: Color): Modifier = this.drawBehind {
 }
 
 @Composable
-fun CompactIsland(song: Song, isPlaying: Boolean, accentColor: Color) {
-    Row(
-        modifier = Modifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color.DarkGray)
+fun CompactIsland(
+    song: Song, 
+    isPlaying: Boolean, 
+    accentColor: Color,
+    onPlayPause: () -> Unit,
+    currentPosition: Long
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            if (song.coverArt != null) {
-                Image(
-                    bitmap = song.coverArt.toImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.DarkGray)
+            ) {
+                if (song.coverArt != null) {
+                    Image(
+                        bitmap = song.coverArt.toImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = song.title,
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = song.artist,
+                    color = accentColor.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-        }
 
-        Column(
-            modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            IconButton(onClick = onPlayPause) {
+                Text(if (isPlaying) "⏸" else "▶", color = Color.White, fontSize = 20.sp)
+            }
+        }
+        
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(Color.White.copy(alpha = 0.1f))
         ) {
-            Text(
-                text = song.title,
-                color = Color.White,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            val progress = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .fillMaxHeight()
+                    .background(accentColor)
             )
-        }
-
-        if (isPlaying) {
-            LiveWaveform(color = accentColor, barCount = 3, heightRange = 6..18)
-        } else {
-            Text("PAUSED", color = NeonMagenta, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
