@@ -16,6 +16,7 @@
         android:name=".VoidPlayerApp"
         android:allowBackup="true"
         android:label="Void Player"
+        android:icon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
         

@@ -8,10 +8,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+import androidx.compose.ui.res.painterResource
+
 fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "Void Player",
+        icon = painterResource("icon.png")
     ) {
         App(DesktopSongRepository(), DesktopAudioPlayer())
     }
