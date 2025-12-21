@@ -78,6 +78,19 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
         songs
     }
 
+    override suspend fun loadArt(uriString: String): ByteArray? = withContext(Dispatchers.IO) {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, android.net.Uri.parse(uriString))
+            val art = retriever.embeddedPicture
+            retriever.release()
+            art
+        } catch (e: Exception) {
+            retriever.release()
+            null
+        }
+    }
+
     private fun traverseDirectory(
         dir: androidx.documentfile.provider.DocumentFile, 
         songs: MutableList<Song>,

@@ -1,0 +1,16 @@
+F:\Project\Music-Player\composeApp\src\commonMain\kotlin\com\example\voidplayer\model\Song.kt
+F:\Project\Music-Player\composeApp\build\generated\compose\resourceGenerator\kotlin\commonResClass\voidplayerkmp\composeapp\generated\resources\Res.kt
+F:\Project\Music-Player\composeApp\src\androidMain\kotlin\com\example\voidplayer\service\OverlayService.kt
+F:\Project\Music-Player\composeApp\src\androidMain\kotlin\com\example\voidplayer\player\AndroidAudioPlayer.kt
+F:\Project\Music-Player\composeApp\src\commonMain\kotlin\com\example\voidplayer\player\AudioPlayer.kt
+F:\Project\Music-Player\composeApp\build\generated\compose\resourceGenerator\kotlin\androidMainResourceCollectors\voidplayerkmp\composeapp\generated\resources\ActualResourceCollectors.kt
+F:\Project\Music-Player\composeApp\src\androidMain\kotlin\com\example\voidplayer\data\AndroidSongRepository.kt
+F:\Project\Music-Player\composeApp\src\commonMain\kotlin\com\example\voidplayer\data\SongRepository.kt
+F:\Project\Music-Player\composeApp\src\androidMain\kotlin\com\example\voidplayer\ColorExtractor.kt
+F:\Project\Music-Player\composeApp\src\commonMain\kotlin\com\example\voidplayer\ColorExtractor.kt
+F:\Project\Music-Player\composeApp\src\androidMain\kotlin\com\example\voidplayer\ImageUtils.kt
+F:\Project\Music-Player\composeApp\src\androidMain\kotlin\com\example\voidplayer\MainActivity.kt
+F:\Project\Music-Player\composeApp\src\androidMain\kotlin\com\example\voidplayer\VoidPlayerApp.kt
+F:\Project\Music-Player\composeApp\src\commonMain\kotlin\com\example\voidplayer\App.kt
+F:\Project\Music-Player\composeApp\src\commonMain\kotlin\com\example\voidplayer\ImageUtils.kt
+F:\Project\Music-Player\composeApp\build\generated\compose\resourceGenerator\kotlin\commonMainResourceCollectors\voidplayerkmp\composeapp\generated\resources\ExpectResourceCollectors.kt

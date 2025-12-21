@@ -60,7 +60,6 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
-                mediaSession?.isActive = true // Always keep active while app is alive or just when playing
                 if (isPlaying) startProgressUpdate() else stopProgressUpdate()
             }
 
