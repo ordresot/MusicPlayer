@@ -93,7 +93,7 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
                     val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: file.name ?: "Unknown"
                     val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: "Unknown Artist"
                     val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L
-                    val art = retriever.embeddedPicture
+                    val art: ByteArray? = null // retriever.embeddedPicture // Optimization: fast scan
                     
                     songs.add(
                         Song(

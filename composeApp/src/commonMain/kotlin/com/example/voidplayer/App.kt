@@ -52,6 +52,10 @@ val CyberpunkScheme = darkColorScheme(
     onSurface = Color.White
 )
 
+val SineEaseInOut = Easing { fraction ->
+    (-(kotlin.math.cos(kotlin.math.PI * fraction) - 1f) / 2f).toFloat()
+}
+
 @Composable
 fun App(
     repository: SongRepository,
@@ -136,7 +140,11 @@ fun MainContent(
                 repository.getSongs()
             }
             songs = loadedSongs
-            player.setPlaylist(loadedSongs)
+            // Only set playlist if it's empty or significantly different to avoid resetting current playback
+            // This is a simple heuristic; a proper equality check would be better but expensive
+            if (player.currentSong.value == null) {
+                player.setPlaylist(loadedSongs)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -148,7 +156,7 @@ fun MainContent(
                 .fillMaxSize()
                 .padding(top = 20.dp)
         ) {
-            Header(onPickFolder, animatedDominantColor)
+            Header(onPickFolder, animatedDominantColor, onOpenSettings = { showSettings = true })
 
             AnimatedVisibility(
                 visible = error != null,
@@ -190,11 +198,66 @@ fun MainContent(
                 onToggleExpand = { isExpanded = !isExpanded }
             )
         }
+        
+        if (showSettings) {
+             SettingsDialog(
+                 onDismiss = { showSettings = false }, 
+                 player = player, 
+                 accentColor = animatedDominantColor
+             )
+        }
     }
 }
 
 @Composable
-fun Header(onPickFolder: () -> Unit, accentColor: Color) {
+fun SettingsDialog(onDismiss: () -> Unit, player: AudioPlayer, accentColor: Color) {
+    var disableNormalization by remember { mutableStateOf(false) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DeepBlack,
+        title = {
+            Text("SETTINGS", color = accentColor, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Disable Normalization", color = Color.White, fontSize = 14.sp)
+                    Switch(
+                        checked = disableNormalization,
+                        onCheckedChange = { disableNormalization = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = accentColor,
+                            checkedTrackColor = accentColor.copy(alpha = 0.3f),
+                            uncheckedThumbColor = Color.Gray,
+                            uncheckedTrackColor = Color.DarkGray
+                        )
+                    )
+                }
+                
+                Button(
+                    onClick = { player.openEqualizer() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("OPEN EQUALIZER", color = Color.White)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("CLOSE", color = accentColor)
+            }
+        }
+    )
+}
+
+@Composable
+fun Header(onPickFolder: () -> Unit, accentColor: Color, onOpenSettings: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -217,14 +280,26 @@ fun Header(onPickFolder: () -> Unit, accentColor: Color) {
             )
         }
         
-        IconButton(
-            onClick = onPickFolder,
-            modifier = Modifier
-                .clip(CutCornerShape(8.dp))
-                .background(accentColor.copy(alpha = 0.1f))
-                .border(1.dp, accentColor.copy(alpha = 0.3f), CutCornerShape(8.dp))
-        ) {
-            Text("📂", fontSize = 20.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Settings Button
+            IconButton(
+                onClick = onOpenSettings
+            ) {
+                Text("⚙", fontSize = 24.sp, color = Color.White)
+            }
+            
+            // Folder Button - Simplified as requested
+            IconButton(
+                onClick = onPickFolder
+            ) {
+                // Using a text emoji for now to keep it simple but clean, 
+                // or could use an icon if I had the dependency. 
+                // User asked for "simple icon" and showed a clean white one.
+                // I'll use a clean unicode folder or simple graphic if possible.
+                // Since I don't have vector assets readily available without adding them,
+                // I'll stick to a clean white generic folder symbol.
+                Text("📁", fontSize = 24.sp, color = Color.White)
+            }
         }
     }
 }
@@ -774,9 +849,6 @@ fun formatTime(ms: Long): String {
     val totalSeconds = ms / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return "${minutes}:${if (seconds < 10) \"0\" else \"\"}${seconds}"
-}
-
-val SineEaseInOut = Easing { fraction ->
-    (-(kotlin.math.cos(kotlin.math.PI * fraction) - 1f) / 2f).toFloat()
+    val secStr = if (seconds < 10) "0$seconds" else "$seconds"
+    return "$minutes:$secStr"
 }

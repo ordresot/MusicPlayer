@@ -60,6 +60,7 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
+                mediaSession?.isActive = true // Always keep active while app is alive or just when playing
                 if (isPlaying) startProgressUpdate() else stopProgressUpdate()
             }
 
@@ -167,6 +168,19 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         progressJob = null
     }
     
+    override fun openEqualizer() {
+        try {
+            val intent = Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL)
+            intent.putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
+            intent.putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
+            intent.putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            _error.value = "Equalizer not found"
+        }
+    }
+
     override fun cleanUp() {
         mediaSession?.release()
         mediaSession = null

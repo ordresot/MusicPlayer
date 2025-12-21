@@ -25,8 +25,11 @@ class MainActivity : ComponentActivity() {
         }
 
         val app = VoidPlayerApp.instance
-        val pickedFolderUri = mutableStateOf<String?>(null)
-        val statusMsg = mutableStateOf("Ready")
+        val sharedPref = getSharedPreferences("VoidPlayerPrefs", android.content.Context.MODE_PRIVATE)
+        val savedUri = sharedPref.getString("last_folder_uri", null)
+        
+        val pickedFolderUri = mutableStateOf(savedUri)
+        val statusMsg = mutableStateOf(if (savedUri != null) "Restored Folder" else "Ready")
 
         val permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
@@ -46,6 +49,8 @@ class MainActivity : ComponentActivity() {
                         android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
                     pickedFolderUri.value = uri.toString()
+                    sharedPref.edit().putString("last_folder_uri", uri.toString()).apply()
+                    statusMsg.value = "Folder Saved"
                 } catch(e: Exception) { 
                     statusMsg.value = "Folder Auth Failed"
                 }
@@ -86,6 +91,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        android.util.Log.d("VoidPlayer", "MainActivity onStart - Stopping OverlayService")
+        val intent = Intent(this, com.example.voidplayer.service.OverlayService::class.java)
+        stopService(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        android.util.Log.d("VoidPlayer", "MainActivity onResume - Stopping OverlayService")
         val intent = Intent(this, com.example.voidplayer.service.OverlayService::class.java)
         stopService(intent)
     }

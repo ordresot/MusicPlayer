@@ -23,6 +23,7 @@ interface AudioPlayer {
     fun seekForward(millis: Long = 10000)
     fun seekBackward(millis: Long = 10000)
     fun cleanUp()
+    fun openEqualizer()
 
     enum class RepeatMode {
         OFF, ONE, ALL

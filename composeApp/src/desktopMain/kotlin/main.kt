@@ -39,9 +39,20 @@ class DesktopAudioPlayer : AudioPlayer {
 
     override val error: StateFlow<String?> = MutableStateFlow(null)
 
+    override val isShuffle: StateFlow<Boolean> = MutableStateFlow(false)
+    override val repeatMode: StateFlow<AudioPlayer.RepeatMode> = MutableStateFlow(AudioPlayer.RepeatMode.OFF)
+
     override fun play(song: Song) {}
+    override fun setPlaylist(songs: List<Song>) {}
     override fun pause() {}
     override fun resume() {}
+    override fun next() {}
+    override fun previous() {}
+    override fun toggleShuffle() {}
+    override fun toggleRepeat() {}
     override fun seekTo(position: Long) {}
+    override fun seekForward(millis: Long) {}
+    override fun seekBackward(millis: Long) {}
     override fun cleanUp() {}
+    override fun openEqualizer() {}
 }
