@@ -3,6 +3,7 @@ package com.example.voidplayer.player
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.audiofx.Equalizer
 import android.os.Build
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -27,6 +28,7 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
     private val scope = CoroutineScope(Dispatchers.Main)
     
     private var mediaSession: MediaSession? = null
+    private var androidEqualizer: Equalizer? = null
 
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -46,6 +48,9 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
     private val _repeatMode = MutableStateFlow(AudioPlayer.RepeatMode.OFF)
     override val repeatMode: StateFlow<AudioPlayer.RepeatMode> = _repeatMode.asStateFlow()
 
+    private val _equalizerBands = MutableStateFlow<List<AudioPlayer.EqualizerBand>>(emptyList())
+    override val equalizerBands: StateFlow<List<AudioPlayer.EqualizerBand>> = _equalizerBands.asStateFlow()
+
     private var playlist: List<Song> = emptyList()
     private var progressJob: Job? = null
 
@@ -60,7 +65,13 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
-                if (isPlaying) startProgressUpdate() else stopProgressUpdate()
+                if (isPlaying) {
+                    startProgressUpdate()
+                    startPlaybackService()
+                    ensureEqualizer()
+                } else {
+                    stopProgressUpdate()
+                }
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -75,6 +86,71 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
             }
         })
     }
+
+    private fun ensureEqualizer() {
+        if (androidEqualizer == null) {
+            try {
+                androidEqualizer = Equalizer(0, player.audioSessionId).apply {
+                    enabled = true
+                }
+                updateEqualizerBandsState()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun updateEqualizerBandsState() {
+        val eq = androidEqualizer ?: return
+        val bands = mutableListOf<AudioPlayer.EqualizerBand>()
+        val minMax = eq.bandLevelRange
+        for (i in 0 until eq.numberOfBands) {
+            bands.add(
+                AudioPlayer.EqualizerBand(
+                    frequency = eq.getCenterFreq(i.toShort()) / 1000,
+                    level = eq.getBandLevel(i.toShort()).toInt(),
+                    minLevel = minMax[0].toInt(),
+                    maxLevel = minMax[1].toInt()
+                )
+            )
+        }
+        _equalizerBands.value = bands
+    }
+
+    override fun setEqualizerBandLevel(bandIndex: Int, level: Int) {
+        ensureEqualizer()
+        androidEqualizer?.let { eq ->
+            eq.setBandLevel(bandIndex.toShort(), level.toShort())
+            updateEqualizerBandsState()
+        }
+    }
+
+    override fun updateSongArt(songId: Long, art: ByteArray) {
+        val index = playlist.indexOfFirst { it.id == songId }
+        if (index != -1) {
+            val updatedSong = playlist[index].copy(coverArt = art)
+            playlist = playlist.toMutableList().apply { set(index, updatedSong) }
+            
+            if (_currentSong.value?.id == songId) {
+                _currentSong.value = updatedSong
+            }
+        }
+    }
+
+    private fun startPlaybackService() {
+        try {
+            val intent = Intent(context, PlaybackService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun getMediaSession(): MediaSession? = mediaSession
 
     override fun setPlaylist(songs: List<Song>) {
         this.playlist = songs
@@ -93,28 +169,39 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         }
         player.setMediaItems(mediaItems)
         player.prepare()
+        
+        if (_currentSong.value == null && songs.isNotEmpty()) {
+            _currentSong.value = songs[0]
+        }
     }
 
     override fun play(song: Song) {
         val index = playlist.indexOfFirst { it.id == song.id }
         if (index != -1) {
+            _currentSong.value = song
             player.seekTo(index, 0)
             player.play()
         } else {
             setPlaylist(listOf(song))
+            _currentSong.value = song
             player.play()
         }
+        startPlaybackService()
     }
 
     override fun pause() { player.pause() }
     override fun resume() { player.play() }
 
     override fun next() {
-        if (player.hasNextMediaItem()) player.seekToNext()
+        if (player.hasNextMediaItem()) {
+            player.seekToNext()
+        }
     }
 
     override fun previous() {
-        if (player.hasPreviousMediaItem()) player.seekToPrevious()
+        if (player.hasPreviousMediaItem()) {
+            player.seekToPrevious()
+        }
     }
 
     override fun toggleShuffle() {
@@ -166,23 +253,12 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         progressJob?.cancel()
         progressJob = null
     }
-    
-    override fun openEqualizer() {
-        try {
-            val intent = Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL)
-            intent.putExtra(android.media.audiofx.AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
-            intent.putExtra(android.media.audiofx.AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
-            intent.putExtra(android.media.audiofx.AudioEffect.EXTRA_CONTENT_TYPE, android.media.audiofx.AudioEffect.CONTENT_TYPE_MUSIC)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            _error.value = "Equalizer not found"
-        }
-    }
 
     override fun cleanUp() {
         mediaSession?.release()
         mediaSession = null
+        androidEqualizer?.release()
+        androidEqualizer = null
         player.release()
         stopProgressUpdate()
     }

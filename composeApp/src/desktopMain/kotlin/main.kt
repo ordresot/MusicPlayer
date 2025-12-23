@@ -48,6 +48,7 @@ class DesktopAudioPlayer : AudioPlayer {
 
     override val isShuffle: StateFlow<Boolean> = MutableStateFlow(false)
     override val repeatMode: StateFlow<AudioPlayer.RepeatMode> = MutableStateFlow(AudioPlayer.RepeatMode.OFF)
+    override val equalizerBands: StateFlow<List<AudioPlayer.EqualizerBand>> = MutableStateFlow(emptyList())
 
     override fun play(song: Song) {}
     override fun setPlaylist(songs: List<Song>) {}
@@ -61,5 +62,6 @@ class DesktopAudioPlayer : AudioPlayer {
     override fun seekForward(millis: Long) {}
     override fun seekBackward(millis: Long) {}
     override fun cleanUp() {}
-    override fun openEqualizer() {}
+    override fun setEqualizerBandLevel(bandIndex: Int, level: Int) {}
+    override fun updateSongArt(songId: Long, art: ByteArray) {}
 }

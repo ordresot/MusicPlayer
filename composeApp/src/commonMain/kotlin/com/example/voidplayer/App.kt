@@ -4,7 +4,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,12 +14,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -28,12 +25,9 @@ import androidx.compose.ui.unit.sp
 import com.example.voidplayer.data.SongRepository
 import com.example.voidplayer.model.Song
 import com.example.voidplayer.player.AudioPlayer
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.ui.graphics.graphicsLayer
 
 // --- Modern Dark Theme Colors ---
 val PrimaryAccent = Color(0xFFFFFFFF) // Clean White
@@ -181,46 +175,117 @@ fun MainContent(
 
 @Composable
 fun SettingsDialog(onDismiss: () -> Unit, player: AudioPlayer, accentColor: Color) {
-    var disableNormalization by remember { mutableStateOf(false) }
+    var showEqualizer by remember { mutableStateOf(false) }
+    
+    if (showEqualizer) {
+        EqualizerDialog(onDismiss = { showEqualizer = false }, player = player, accentColor = accentColor)
+    } else {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = BackgroundColor,
+            title = {
+                Text("SETTINGS", color = accentColor, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(
+                        onClick = { showEqualizer = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = SurfaceColor),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("EQUALIZER", color = Color.White)
+                    }
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Audio Normalization", color = Color.White, fontSize = 14.sp)
+                        Switch(
+                            checked = true,
+                            onCheckedChange = { },
+                            colors = SwitchDefaults.colors(checkedThumbColor = accentColor)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("CLOSE", color = accentColor)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun EqualizerDialog(onDismiss: () -> Unit, player: AudioPlayer, accentColor: Color) {
+    val bands by player.equalizerBands.collectAsState()
     
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = BackgroundColor,
+        modifier = Modifier.fillMaxWidth(0.95f),
         title = {
-            Text("SETTINGS", color = accentColor, fontWeight = FontWeight.Bold)
+            Text("EQUALIZER", color = accentColor, fontWeight = FontWeight.Bold)
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Disable Normalization", color = Color.White, fontSize = 14.sp)
-                    Switch(
-                        checked = disableNormalization,
-                        onCheckedChange = { disableNormalization = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = accentColor,
-                            checkedTrackColor = accentColor.copy(alpha = 0.3f),
-                            uncheckedThumbColor = Color.Gray,
-                            uncheckedTrackColor = Color.DarkGray
-                        )
-                    )
-                }
-                
-                Button(
-                    onClick = { player.openEqualizer() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("OPEN EQUALIZER", color = Color.White)
+            Column(
+                modifier = Modifier.fillMaxWidth().height(300.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                if (bands.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Start music to use equalizer", color = Color.Gray)
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        bands.forEachIndexed { index, band ->
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.width(60.dp)
+                            ) {
+                                Text(
+                                    text = "${band.level / 100}dB", 
+                                    color = Color.Gray, 
+                                    fontSize = 10.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Slider(
+                                    value = band.level.toFloat(),
+                                    onValueChange = { player.setEqualizerBandLevel(index, it.toInt()) },
+                                    valueRange = band.minLevel.toFloat()..band.maxLevel.toFloat(),
+                                    modifier = Modifier.height(180.dp).graphicsLayer {
+                                        rotationZ = -90f
+                                    },
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = accentColor,
+                                        activeTrackColor = accentColor,
+                                        inactiveTrackColor = SurfaceColor
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = if(band.frequency >= 1000) "${band.frequency/1000}k" else "${band.frequency}", 
+                                    color = Color.White, 
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("CLOSE", color = accentColor)
+                Text("DONE", color = accentColor)
             }
         }
     )
@@ -371,7 +436,7 @@ fun DynamicIsland(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
     )
     val height by animateDpAsState(
-        targetValue = if (isExpanded) 600.dp else 64.dp,
+        targetValue = if (isExpanded) 650.dp else 64.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
     )
     val cornerRadius by animateDpAsState(if (isExpanded) 40.dp else 32.dp)
@@ -414,6 +479,7 @@ fun DynamicIsland(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullScreenPlayer(
     song: Song,
@@ -492,48 +558,107 @@ fun FullScreenPlayer(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Slider(
-            value = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f,
-            onValueChange = { player.seekTo((it * song.duration).toLong()) },
-            colors = SliderDefaults.colors(
-                thumbColor = accentColor,
-                activeTrackColor = accentColor,
-                inactiveTrackColor = Color.DarkGray
+        // Control Section
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Thinner Progress Bar
+            Slider(
+                value = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f,
+                onValueChange = { player.seekTo((it * song.duration).toLong()) },
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = Color.White,
+                    inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+                ),
+                track = { sliderState ->
+                    SliderDefaults.Track(
+                        sliderState = sliderState,
+                        modifier = Modifier.height(2.dp),
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = Color.White,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+                        )
+                    )
+                },
+                thumb = {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(Color.White, CircleShape)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth()
             )
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(formatTime(currentPosition), color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-            Text(formatTime(song.duration), color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-        }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(formatTime(currentPosition), color = Color.Gray, fontSize = 12.sp)
+                Text(formatTime(song.duration), color = Color.Gray, fontSize = 12.sp)
+            }
 
-        Spacer(modifier = Modifier.weight(0.1f))
+            Spacer(modifier = Modifier.height(24.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-             IconButton(onClick = { player.toggleShuffle() }) {
-                Text("🔀", color = if(isShuffle) accentColor else Color.Gray, fontSize = 20.sp)
-             }
-             IconButton(onClick = { player.previous() }) {
-                Text("⏮", color = Color.White, fontSize = 32.sp)
-             }
-             IconButton(
-                 onClick = { if (isPlaying) player.pause() else player.resume() },
-                 modifier = Modifier.size(64.dp).background(accentColor, CircleShape)
-             ) {
-                Text(if (isPlaying) "⏸" else "▶", color = Color.Black, fontSize = 28.sp)
-             }
-             IconButton(onClick = { player.next() }) {
-                Text("⏭", color = Color.White, fontSize = 32.sp)
-             }
-             IconButton(onClick = { player.toggleRepeat() }) {
-                Text(if (repeatMode == AudioPlayer.RepeatMode.ONE) "🔂" else "🔁", color = if(repeatMode != AudioPlayer.RepeatMode.OFF) accentColor else Color.Gray, fontSize = 20.sp)
-             }
+            // Controls Row - Shuffle, Prev, Play, Next, Repeat
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                 IconButton(onClick = { player.toggleShuffle() }) {
+                    Text("🔀", color = if(isShuffle) Color.White else Color.White.copy(alpha = 0.3f), fontSize = 20.sp)
+                 }
+                 
+                 IconButton(onClick = { player.previous() }) {
+                    Text("⏮", color = Color.White, fontSize = 28.sp)
+                 }
+
+                 // Play/Pause Circle
+                 Box(
+                     modifier = Modifier
+                         .size(72.dp)
+                         .background(Color.White, CircleShape)
+                         .clickable { if (isPlaying) player.pause() else player.resume() },
+                     contentAlignment = Alignment.Center
+                 ) {
+                    Text(
+                        if (isPlaying) "II" else "▶", 
+                        color = Color.Black, 
+                        fontSize = 24.sp, 
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                 }
+
+                 IconButton(onClick = { player.next() }) {
+                    Text("⏭", color = Color.White, fontSize = 28.sp)
+                 }
+
+                 IconButton(onClick = { player.toggleRepeat() }) {
+                    val icon = when(repeatMode) {
+                        AudioPlayer.RepeatMode.ONE -> "🔂"
+                        else -> "🔁"
+                    }
+                    Text(icon, color = if(repeatMode != AudioPlayer.RepeatMode.OFF) Color.White else Color.White.copy(alpha = 0.3f), fontSize = 20.sp)
+                 }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Menu and Heart icons moved to a separate subtle row
+            Row(
+                modifier = Modifier.fillMaxWidth(0.8f),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                IconButton(onClick = { }) {
+                    Text("☰", color = Color.White.copy(alpha = 0.4f), fontSize = 18.sp)
+                }
+                IconButton(onClick = { }) {
+                    Text("♥", color = Color.White.copy(alpha = 0.4f), fontSize = 18.sp)
+                }
+            }
         }
         
         Spacer(modifier = Modifier.weight(0.1f))

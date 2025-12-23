@@ -30,8 +30,6 @@ import com.example.voidplayer.LiveWaveform
 import com.example.voidplayer.toImageBitmap
 import com.example.voidplayer.formatTime
 import com.example.voidplayer.getDominantColor
-import com.example.voidplayer.Color(0xFF00F0FF)
-import com.example.voidplayer.formatTime
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -45,6 +43,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import com.example.voidplayer.model.Song
 
 class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
@@ -82,23 +81,36 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or 
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, // Allow drawing over status bar
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         )
 
         params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        params.y = 60 // Moved down to avoid camera cutout/notch
+        params.y = 60 
 
         val composeView = ComposeView(this).apply {
             setContent {
                 val player = VoidPlayerApp.instance.player
+                val repository = VoidPlayerApp.instance.repository
                 val currentSong by player.currentSong.collectAsState()
                 val isPlaying by player.isPlaying.collectAsState()
                 val currentPosition by player.currentPosition.collectAsState()
                 
                 var isExpanded by remember { mutableStateOf(false) }
                 
-                val accentColor = currentSong?.coverArt?.let { getDominantColor(it) } ?: Color(0xFF00F0FF)
+                // Art loading logic for overlay
+                var art by remember(currentSong?.id) { mutableStateOf(currentSong?.coverArt) }
+                LaunchedEffect(currentSong?.id) {
+                    currentSong?.let { song ->
+                        if (song.coverArt == null) {
+                            art = repository.loadArt(song.uri)
+                        } else {
+                            art = song.coverArt
+                        }
+                    }
+                }
+
+                val accentColor = art?.let { getDominantColor(it) } ?: Color(0xFF00F0FF)
 
                 LaunchedEffect(isExpanded) {
                     params.width = if (isExpanded) WindowManager.LayoutParams.MATCH_PARENT else WindowManager.LayoutParams.WRAP_CONTENT
@@ -106,7 +118,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 }
 
                 currentSong?.let { song ->
-                    // System Capsule Dimensions matches OnePlus/iOS
                     val width by animateDpAsState(if (isExpanded) 380.dp else 120.dp, animationSpec = spring(stiffness = Spring.StiffnessLow))
                     val height by animateDpAsState(if (isExpanded) 180.dp else 36.dp, animationSpec = spring(stiffness = Spring.StiffnessLow))
                     val cornerRadius by animateDpAsState(if (isExpanded) 28.dp else 18.dp)
@@ -133,13 +144,13 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                                 }
                             ) { expanded ->
                                 if (expanded) {
-                                    ExpandedIsland(song, isPlaying, currentPosition, accentColor, 
+                                    ExpandedIsland(song, art, isPlaying, currentPosition, accentColor, 
                                         onPrev = { player.previous() },
                                         onNext = { player.next() },
                                         onPlayPause = { if (isPlaying) player.pause() else player.resume() }
                                     )
                                 } else {
-                                    CompactIsland(song, isPlaying, accentColor)
+                                    CompactIsland(song, art, isPlaying, accentColor)
                                 }
                             }
                         }
@@ -165,34 +176,24 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     @Composable
-    private fun CompactIsland(song: com.example.voidplayer.model.Song, isPlaying: Boolean, accentColor: Color) {
+    private fun CompactIsland(song: Song, art: ByteArray?, isPlaying: Boolean, accentColor: Color) {
         Row(
             modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            // Minimalist "Capsule" Look - Just Waveform/Icon
-            if (isPlaying) {
-                 Box(
-                    modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.Transparent),
-                    contentAlignment = Alignment.Center
-                ) {
-                    song.coverArt?.let {
-                        Image(bitmap = it.toImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(CircleShape))
-                    }
+            Box(
+                modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.DarkGray),
+                contentAlignment = Alignment.Center
+            ) {
+                art?.let {
+                    Image(bitmap = it.toImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(CircleShape))
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            if (isPlaying) {
                 LiveWaveform(color = accentColor, barCount = 4, heightRange = 6..14)
             } else {
-                 Box(
-                    modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.Transparent),
-                    contentAlignment = Alignment.Center
-                ) {
-                     song.coverArt?.let {
-                        Image(bitmap = it.toImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(CircleShape))
-                    }
-                }
-                Spacer(modifier = Modifier.width(8.dp))
                 Text("II", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
@@ -200,7 +201,8 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     @Composable
     private fun ExpandedIsland(
-        song: com.example.voidplayer.model.Song, 
+        song: Song, 
+        art: ByteArray?,
         isPlaying: Boolean, 
         currentPosition: Long, 
         accentColor: Color,
@@ -209,11 +211,10 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         onPlayPause: () -> Unit
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            // Top Row: Art + Title + Waveform
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color.DarkGray)) {
-                    song.coverArt?.let {
-                        Image(bitmap = it.toImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop)
+                    art?.let {
+                        Image(bitmap = it.toImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
@@ -226,7 +227,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Progress
             Column {
                 LinearProgressIndicator(
                     progress = { if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f },
@@ -242,7 +242,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Controls
             Row(
                 modifier = Modifier.fillMaxWidth(), 
                 horizontalArrangement = Arrangement.SpaceEvenly, 
@@ -252,7 +251,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     Text("⏮", color = Color.White, fontSize = 24.sp) 
                 }
                 
-                // Aesthetic Play Button
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -279,7 +277,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     override fun onDestroy() {
         super.onDestroy()
-        android.util.Log.d("VoidPlayer", "OverlayService onDestroy called - Removing overlay")
         overlayView?.let { 
             try {
                 windowManager.removeView(it)

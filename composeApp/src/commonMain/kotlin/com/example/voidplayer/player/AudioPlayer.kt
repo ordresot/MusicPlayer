@@ -10,6 +10,7 @@ interface AudioPlayer {
     val error: StateFlow<String?>
     val isShuffle: StateFlow<Boolean>
     val repeatMode: StateFlow<RepeatMode>
+    val equalizerBands: StateFlow<List<EqualizerBand>>
 
     fun play(song: Song)
     fun setPlaylist(songs: List<Song>)
@@ -23,9 +24,17 @@ interface AudioPlayer {
     fun seekForward(millis: Long = 10000)
     fun seekBackward(millis: Long = 10000)
     fun cleanUp()
-    fun openEqualizer()
+    fun setEqualizerBandLevel(bandIndex: Int, level: Int)
+    fun updateSongArt(songId: Long, art: ByteArray)
 
     enum class RepeatMode {
         OFF, ONE, ALL
     }
+
+    data class EqualizerBand(
+        val frequency: Int,
+        val level: Int,
+        val minLevel: Int,
+        val maxLevel: Int
+    )
 }

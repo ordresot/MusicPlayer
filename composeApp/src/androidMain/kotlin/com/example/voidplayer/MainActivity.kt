@@ -32,10 +32,11 @@ class MainActivity : ComponentActivity() {
         val statusMsg = mutableStateOf(if (savedUri != null) "Restored Folder" else "Ready")
 
         val permissionLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-           if(!isGranted) {
-               statusMsg.value = "Permission Denied"
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+           val audioGranted = permissions[if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
+           if(!audioGranted) {
+               statusMsg.value = "Storage Permission Denied"
            }
         }
         
@@ -62,13 +63,15 @@ class MainActivity : ComponentActivity() {
             startActivity(intent)
         }
 
-        val permission = if (Build.VERSION.SDK_INT >= 33) {
-            Manifest.permission.READ_MEDIA_AUDIO
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= 33) {
+            permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
         
-        permissionLauncher.launch(permission)
+        permissionLauncher.launch(permissions.toTypedArray())
 
         setContent {
             App(
@@ -91,14 +94,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        android.util.Log.d("VoidPlayer", "MainActivity onStart - Stopping OverlayService")
         val intent = Intent(this, com.example.voidplayer.service.OverlayService::class.java)
         stopService(intent)
     }
 
     override fun onResume() {
         super.onResume()
-        android.util.Log.d("VoidPlayer", "MainActivity onResume - Stopping OverlayService")
         val intent = Intent(this, com.example.voidplayer.service.OverlayService::class.java)
         stopService(intent)
     }
