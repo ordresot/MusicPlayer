@@ -128,7 +128,9 @@ fun MainContent(
 
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 if (isLoading) {
-                    CircularProgressIndicator(color = Color.White)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Color.White)
+                    }
                 } else if (songs.isEmpty()) {
                     EmptyState(onPickFolder, statusMessage)
                 } else {

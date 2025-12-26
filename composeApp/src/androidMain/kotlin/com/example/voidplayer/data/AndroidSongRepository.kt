@@ -83,9 +83,11 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
         try {
             retriever.setDataSource(context, android.net.Uri.parse(uriString))
             val art = retriever.embeddedPicture
+            android.util.Log.d("VoidPlayer", "Loaded Art for $uriString: ${art?.size} bytes")
             retriever.release()
             art
         } catch (e: Exception) {
+            android.util.Log.e("VoidPlayer", "Failed to load art for $uriString", e)
             retriever.release()
             null
         }
