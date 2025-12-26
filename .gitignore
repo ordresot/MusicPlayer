@@ -1,3 +1,36 @@
+# Gradle
+.gradle/
+build/
+*/build/
 
-# Legacy Flutter Build
+# IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Local Configuration
+local.properties
+
+# Kotlin
+.kotlin/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+
+# Logs and Temporary files
+*.log
+*.logcat
+*_log.txt
+desktop_build.log
+desktop_run_log.txt
+git_log.txt
+status_reset.txt
+
+# Root images (Temporary assets)
+*.png
+*.webp
+
+# Legacy Flutter
 legacy_flutter/build/

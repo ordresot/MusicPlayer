@@ -58,10 +58,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        if (!Settings.canDrawOverlays(this)) {
-            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-            startActivity(intent)
-        }
+
 
         val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= 33) {
@@ -88,8 +85,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        val intent = Intent(this, com.example.voidplayer.service.OverlayService::class.java)
-        startService(intent)
+        if (Settings.canDrawOverlays(this)) {
+            val intent = Intent(this, com.example.voidplayer.service.OverlayService::class.java)
+            startService(intent)
+        }
     }
 
     override fun onStart() {
