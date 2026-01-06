@@ -58,8 +58,8 @@ android {
         applicationId = "com.example.voidplayer"
         minSdk = 24
         targetSdk = 34 // Android 14 (35 optional)
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.5"
     }
     
     compileOptions {
