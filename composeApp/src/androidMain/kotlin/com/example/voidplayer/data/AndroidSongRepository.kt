@@ -103,26 +103,23 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
             if (file.isDirectory) {
                 traverseDirectory(file, songs, retriever)
             } else if (isValidAudioFile(file.name)) {
-                try {
-                    retriever.setDataSource(context, file.uri)
-                    val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: file.name ?: "Unknown"
-                    val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: "Unknown Artist"
-                    val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L
-                    val art: ByteArray? = null // retriever.embeddedPicture // Optimization: fast scan
-                    
-                    songs.add(
-                        Song(
-                            id = file.uri.hashCode().toLong(),
-                            title = title,
-                            artist = artist,
-                            duration = duration,
-                            uri = file.uri.toString(),
-                            coverArt = art
-                        )
+                // Optimization: SKIP heavy metadata extraction (MediaMetadataRetriever)
+                // Just use filename for instant loading. 
+                // Metadata can be loaded lazily later if needed.
+                val title = file.name ?: "Unknown"
+                val artist = "Unknown Artist" 
+                val duration = 0L // Will be updated when played
+                
+                songs.add(
+                    Song(
+                        id = file.uri.hashCode().toLong(),
+                        title = title,
+                        artist = artist,
+                        duration = duration,
+                        uri = file.uri.toString(),
+                        coverArt = null
                     )
-                } catch (e: Exception) {
-                    songs.add(Song(file.uri.hashCode().toLong(), file.name ?: "Unknown", "Unknown", 0L, file.uri.toString()))
-                }
+                )
             }
         }
     }
