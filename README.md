@@ -50,4 +50,4 @@ A modern, professional music player built with **Kotlin Multiplatform** and **Co
 
 ## 📄 License
 
-This project is open-source.
+This project is open-source
