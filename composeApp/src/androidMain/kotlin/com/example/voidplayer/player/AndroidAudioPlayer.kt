@@ -84,7 +84,33 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 _error.value = "Playback Error: ${error.message}"
             }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY) {
+                    updateCurrentSongMetadata()
+                }
+            }
+
+            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+                updateCurrentSongMetadata()
+            }
         })
+    }
+
+    private fun updateCurrentSongMetadata() {
+        val current = _currentSong.value ?: return
+        val duration = if (player.duration != androidx.media3.common.C.TIME_UNSET) player.duration else current.duration
+        val artist = player.mediaMetadata.artist?.toString() ?: current.artist
+        // Only title if it's not empty? Usually filename is a decent fallback, but metadata title is better.
+        val title = player.mediaMetadata.title?.toString() ?: current.title
+        
+        if (duration != current.duration || artist != current.artist || title != current.title) {
+            _currentSong.value = current.copy(
+                duration = duration,
+                artist = if(artist == "Unknown Artist") "Unknown Artist" else artist, // Keep Unknown if unknown
+                title = title
+            )
+        }
     }
 
     private fun ensureEqualizer() {

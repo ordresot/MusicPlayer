@@ -42,7 +42,8 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
 
                     val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
                     
-                    if (duration > 5000) {
+                    // Allow all audio files, even if duration is not yet reported (e.g. FLACs)
+                    if (duration >= 0) {
                         var art: ByteArray? = null
                         try {
                             retriever.setDataSource(context, contentUri)
