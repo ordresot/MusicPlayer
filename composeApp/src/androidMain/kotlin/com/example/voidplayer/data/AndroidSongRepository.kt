@@ -104,12 +104,18 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
             if (file.isDirectory) {
                 traverseDirectory(file, songs, retriever)
             } else if (isValidAudioFile(file.name)) {
-                // Optimization: SKIP heavy metadata extraction (MediaMetadataRetriever)
-                // Just use filename for instant loading. 
-                // Metadata can be loaded lazily later if needed.
-                val title = file.name ?: "Unknown"
-                val artist = "Unknown Artist" 
-                val duration = 0L // Will be updated when played
+                var title = file.name ?: "Unknown"
+                var artist = "Unknown Artist" 
+                var duration = 0L
+                
+                try {
+                    retriever.setDataSource(context, file.uri)
+                    title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: title
+                    artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: artist
+                    duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                } catch (e: Exception) {
+                    // Ignore, fallback to defaults
+                }
                 
                 songs.add(
                     Song(

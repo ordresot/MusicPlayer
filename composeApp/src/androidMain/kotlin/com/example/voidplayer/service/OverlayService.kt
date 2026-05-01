@@ -20,15 +20,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.voidplayer.VoidPlayerApp
-import com.example.voidplayer.LiveWaveform
+import com.example.voidplayer.ui.components.LiveWaveform
 import com.example.voidplayer.toImageBitmap
-import com.example.voidplayer.formatTime
+import com.example.voidplayer.ui.components.formatTime
 import com.example.voidplayer.getDominantColor
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -194,7 +196,12 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             if (isPlaying) {
                 LiveWaveform(color = accentColor, barCount = 4, heightRange = 6..14)
             } else {
-                Text("II", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Icon(
+                    imageVector = Icons.Rounded.Pause,
+                    contentDescription = null,
+                    tint = Color.Gray,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
@@ -248,28 +255,28 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onPrev) { 
-                    Text("⏮", color = Color.White, fontSize = 24.sp) 
+                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "Previous", tint = Color.White, modifier = Modifier.size(32.dp))
                 }
                 
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(56.dp)
                         .shadow(10.dp, CircleShape, spotColor = accentColor)
                         .clip(CircleShape)
                         .background(accentColor)
                         .clickable(onClick = onPlayPause),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (isPlaying) "⏸" else "▶", 
-                        color = Color.Black, 
-                        fontSize = 20.sp, 
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = "Play/Pause",
+                        tint = Color.Black,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
                 
                 IconButton(onClick = onNext) { 
-                    Text("⏭", color = Color.White, fontSize = 24.sp) 
+                    Icon(Icons.Rounded.SkipNext, contentDescription = "Next", tint = Color.White, modifier = Modifier.size(32.dp))
                 }
             }
         }

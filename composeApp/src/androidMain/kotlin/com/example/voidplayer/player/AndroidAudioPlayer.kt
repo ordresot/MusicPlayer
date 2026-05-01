@@ -270,7 +270,7 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         progressJob = scope.launch {
             while (isActive) {
                 _currentPosition.value = player.currentPosition
-                delay(1000)
+                delay(250) // Smoother UI updates
             }
         }
     }

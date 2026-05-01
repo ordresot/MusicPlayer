@@ -21,6 +21,7 @@ kotlin {
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3) // Using Material 3!
+                implementation(compose.materialIconsExtended) // For professional media icons
                 implementation(compose.ui)
                 implementation(compose.components.resources)
                 implementation(compose.components.uiToolingPreview)
@@ -62,6 +63,32 @@ android {
         versionName = "2.0"
     }
     
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore.jks")
+            storePassword = "voidplayer123"
+            keyAlias = "voidplayer"
+            keyPassword = "voidplayer123"
+        }
+    }
+    
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    applicationVariants.all {
+        outputs.all {
+            val outputImpl = this as? com.android.build.gradle.internal.api.ApkVariantOutputImpl
+            if (outputImpl != null) {
+                val versionName = defaultConfig.versionName
+                val variantName = name
+                outputImpl.outputFileName = "VoidPlayer-${versionName}-${variantName}.apk"
+            }
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
@@ -77,7 +104,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "VoidPlayer"
-            packageVersion = "1.0.0"
+            packageVersion = "2.0.0"
         }
     }
 }
