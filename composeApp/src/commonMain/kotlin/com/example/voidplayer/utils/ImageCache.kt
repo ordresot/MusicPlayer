@@ -1,6 +1,7 @@
 package com.example.voidplayer.utils
 
 import androidx.compose.ui.graphics.ImageBitmap
+import com.example.voidplayer.toImageBitmap
 
 /**
  * A simple bounded cache for ImageBitmaps to improve memory management and scroll performance.
@@ -24,4 +25,48 @@ object ImageCache {
     fun clear() {
         cache.clear()
     }
+}
+
+/**
+ * A cache for dominant colors to avoid recalculating them on song changes.
+ */
+object ColorCache {
+    private const val MAX_ENTRIES = 50
+    private val cache = object : LinkedHashMap<String, androidx.compose.ui.graphics.Color>(MAX_ENTRIES, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, androidx.compose.ui.graphics.Color>?): Boolean {
+            return size > MAX_ENTRIES
+        }
+    }
+
+    fun get(key: String): androidx.compose.ui.graphics.Color? = cache[key]
+
+    fun put(key: String, color: androidx.compose.ui.graphics.Color) {
+        cache[key] = color
+    }
+    
+    fun clear() {
+        cache.clear()
+    }
+}
+
+@androidx.compose.runtime.Composable
+fun rememberSongImage(
+    song: com.example.voidplayer.model.Song,
+    repository: com.example.voidplayer.data.SongRepository
+): ImageBitmap? {
+    var bitmap by androidx.compose.runtime.remember(song.id) { 
+        androidx.compose.runtime.mutableStateOf(ImageCache.get(song.id.toString())) 
+    }
+    
+    androidx.compose.runtime.LaunchedEffect(song.id) {
+        if (bitmap == null) {
+            val artBytes = repository.loadArt(song.uri)
+            if (artBytes != null) {
+                val imgBitmap = artBytes.toImageBitmap()
+                ImageCache.put(song.id.toString(), imgBitmap)
+                bitmap = imgBitmap
+            }
+        }
+    }
+    return bitmap
 }

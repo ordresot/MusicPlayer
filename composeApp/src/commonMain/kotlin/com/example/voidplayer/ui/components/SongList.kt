@@ -35,19 +35,7 @@ fun SongItem(
     accentColor: Color,
     onClick: () -> Unit
 ) {
-    // Memory Management Optimization: Don't just keep byte array, but this is simple for now. 
-    // Ideally repository caches ImageBitmaps.
-    var bitmap by remember(song.id) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(com.example.voidplayer.utils.ImageCache.get(song.id.toString())) }
-    LaunchedEffect(song.id) {
-        if (bitmap == null) {
-            val artBytes = repository.loadArt(song.uri)
-            if (artBytes != null) {
-                val imgBitmap = artBytes.toImageBitmap()
-                com.example.voidplayer.utils.ImageCache.put(song.id.toString(), imgBitmap)
-                bitmap = imgBitmap
-            }
-        }
-    }
+    val bitmap = com.example.voidplayer.utils.rememberSongImage(song, repository)
 
     Row(
         modifier = Modifier

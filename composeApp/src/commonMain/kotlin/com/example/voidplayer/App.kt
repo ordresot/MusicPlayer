@@ -36,8 +36,14 @@ fun App(
     
     LaunchedEffect(currentSong?.id) {
         currentSong?.let { song ->
-            scope.launch {
-                currentArt = repository.loadArt(song.uri)
+            val cachedColor = com.example.voidplayer.utils.ColorCache.get(song.id.toString())
+            if (cachedColor != null) {
+                accentColor = cachedColor
+                currentArt = null
+            } else {
+                scope.launch {
+                    currentArt = repository.loadArt(song.uri)
+                }
             }
         } ?: run {
             currentArt = null
@@ -45,11 +51,12 @@ fun App(
         }
     }
     
-    if (currentArt != null) {
+    if (currentArt != null && currentSong != null) {
         // getDominantColor is a composable that returns a Color
         val extractedColor = getDominantColor(currentArt!!)
         LaunchedEffect(extractedColor) {
-             if (extractedColor != Color.Unspecified) { // Assuming it might return Unspecified initially
+             if (extractedColor != Color.Unspecified) {
+                 com.example.voidplayer.utils.ColorCache.put(currentSong!!.id.toString(), extractedColor)
                  accentColor = extractedColor
              }
         }

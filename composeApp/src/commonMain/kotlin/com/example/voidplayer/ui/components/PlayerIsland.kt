@@ -45,18 +45,7 @@ fun DynamicIsland(
 ) {
     val isPlaying by player.isPlaying.collectAsState()
 
-    // Memory Management Optimization
-    var bitmap by remember(song.id) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(com.example.voidplayer.utils.ImageCache.get(song.id.toString())) }
-    LaunchedEffect(song.id) {
-        if (bitmap == null) {
-            val artBytes = repository.loadArt(song.uri)
-            if (artBytes != null) {
-                val imgBitmap = artBytes.toImageBitmap()
-                com.example.voidplayer.utils.ImageCache.put(song.id.toString(), imgBitmap)
-                bitmap = imgBitmap
-            }
-        }
-    }
+    val bitmap = com.example.voidplayer.utils.rememberSongImage(song, repository)
 
     val width by animateDpAsState(
         targetValue = if (isExpanded) 350.dp else 300.dp,
