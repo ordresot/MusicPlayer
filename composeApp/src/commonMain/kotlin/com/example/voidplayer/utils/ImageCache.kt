@@ -2,6 +2,8 @@ package com.example.voidplayer.utils
 
 import androidx.compose.ui.graphics.ImageBitmap
 import com.example.voidplayer.toImageBitmap
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /**
  * A simple bounded cache for ImageBitmaps to improve memory management and scroll performance.
