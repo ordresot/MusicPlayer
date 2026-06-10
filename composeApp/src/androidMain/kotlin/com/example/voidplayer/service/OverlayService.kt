@@ -96,8 +96,6 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 val repository = VoidPlayerApp.instance.repository
                 val currentSong by player.currentSong.collectAsState()
                 val isPlaying by player.isPlaying.collectAsState()
-                val currentPosition by player.currentPosition.collectAsState()
-                
                 var isExpanded by remember { mutableStateOf(false) }
                 
                 // Art loading logic for overlay
@@ -146,7 +144,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                                 }
                             ) { expanded ->
                                 if (expanded) {
-                                    ExpandedIsland(song, art, isPlaying, currentPosition, accentColor, 
+                                    ExpandedIsland(song, art, isPlaying, player, accentColor, 
                                         onPrev = { player.previous() },
                                         onNext = { player.next() },
                                         onPlayPause = { if (isPlaying) player.pause() else player.resume() }
@@ -211,7 +209,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         song: Song, 
         art: ByteArray?,
         isPlaying: Boolean, 
-        currentPosition: Long, 
+        player: com.example.voidplayer.player.AudioPlayer, 
         accentColor: Color,
         onPrev: () -> Unit,
         onNext: () -> Unit,
@@ -234,18 +232,7 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            Column {
-                LinearProgressIndicator(
-                    progress = { if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f },
-                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
-                    color = accentColor,
-                    trackColor = Color.White.copy(alpha = 0.1f)
-                )
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(formatTime(currentPosition), color = Color.Gray, fontSize = 10.sp)
-                    Text(formatTime(song.duration), color = Color.Gray, fontSize = 10.sp)
-                }
-            }
+            ExpandedProgress(song, player, accentColor)
             
             Spacer(modifier = Modifier.height(8.dp))
             
@@ -294,6 +281,23 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    }
+
+    @Composable
+    private fun ExpandedProgress(song: Song, player: com.example.voidplayer.player.AudioPlayer, accentColor: Color) {
+        val currentPosition by player.currentPosition.collectAsState()
+        Column {
+            LinearProgressIndicator(
+                progress = { if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
+                color = accentColor,
+                trackColor = Color.White.copy(alpha = 0.1f)
+            )
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(formatTime(currentPosition), color = Color.Gray, fontSize = 10.sp)
+                Text(formatTime(song.duration), color = Color.Gray, fontSize = 10.sp)
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

@@ -91,14 +91,13 @@ fun DynamicIsland(
             if (expanded) {
                 FullScreenPlayer(song, bitmap, player, accentColor, onToggleExpand)
             } else {
-                val currentPosition by player.currentPosition.collectAsState()
                 CompactIsland(
                     song = song,
                     bitmap = bitmap,
                     isPlaying = isPlaying,
                     accentColor = accentColor,
                     onPlayPause = { if (isPlaying) player.pause() else player.resume() },
-                    currentPosition = currentPosition
+                    player = player
                 )
             }
         }
@@ -112,7 +111,7 @@ fun CompactIsland(
     isPlaying: Boolean,
     accentColor: Color,
     onPlayPause: () -> Unit,
-    currentPosition: Long
+    player: AudioPlayer
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -171,21 +170,7 @@ fun CompactIsland(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(Color.White.copy(alpha = 0.1f))
-        ) {
-            val progress = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progress)
-                    .fillMaxHeight()
-                    .background(accentColor)
-            )
-        }
+        CompactProgress(song, player, accentColor, Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -201,7 +186,6 @@ fun FullScreenPlayer(
     val isPlaying by player.isPlaying.collectAsState()
     val isShuffle by player.isShuffle.collectAsState()
     val repeatMode by player.repeatMode.collectAsState()
-    val currentPosition by player.currentPosition.collectAsState()
 
     Column(
         modifier = Modifier
@@ -273,37 +257,7 @@ fun FullScreenPlayer(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Slider(
-                value = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f,
-                onValueChange = { player.seekTo((it * song.duration).toLong()) },
-                colors = SliderDefaults.colors(
-                    thumbColor = accentColor,
-                    activeTrackColor = accentColor,
-                    inactiveTrackColor = Color.White.copy(alpha = 0.2f)
-                ),
-                track = { sliderState ->
-                    SliderDefaults.Track(
-                        sliderState = sliderState,
-                        modifier = Modifier.height(4.dp), // Slightly thicker
-                        colors = SliderDefaults.colors(
-                            activeTrackColor = accentColor,
-                            inactiveTrackColor = Color.White.copy(alpha = 0.2f)
-                        )
-                    )
-                },
-                thumb = {
-                    Box(modifier = Modifier.size(14.dp).background(accentColor, CircleShape))
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(formatTime(currentPosition), color = SecondaryText, fontSize = 12.sp)
-                Text(formatTime(song.duration), color = SecondaryText, fontSize = 12.sp)
-            }
+            FullScreenProgress(song, player, accentColor)
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -360,6 +314,65 @@ fun FullScreenPlayer(
         }
 
         Spacer(modifier = Modifier.weight(0.1f))
+    }
+}
+
+@Composable
+fun CompactProgress(song: Song, player: AudioPlayer, accentColor: Color, modifier: Modifier = Modifier) {
+    val currentPosition by player.currentPosition.collectAsState()
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .background(Color.White.copy(alpha = 0.1f))
+    ) {
+        val progress = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress)
+                .fillMaxHeight()
+                .background(accentColor)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FullScreenProgress(song: Song, player: AudioPlayer, accentColor: Color) {
+    val currentPosition by player.currentPosition.collectAsState()
+    
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Slider(
+            value = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f,
+            onValueChange = { player.seekTo((it * song.duration).toLong()) },
+            colors = SliderDefaults.colors(
+                thumbColor = accentColor,
+                activeTrackColor = accentColor,
+                inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+            ),
+            track = { sliderState ->
+                SliderDefaults.Track(
+                    sliderState = sliderState,
+                    modifier = Modifier.height(4.dp),
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = accentColor,
+                        inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+                    )
+                )
+            },
+            thumb = {
+                Box(modifier = Modifier.size(14.dp).background(accentColor, CircleShape))
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(formatTime(currentPosition), color = SecondaryText, fontSize = 12.sp)
+            Text(formatTime(song.duration), color = SecondaryText, fontSize = 12.sp)
+        }
     }
 }
 

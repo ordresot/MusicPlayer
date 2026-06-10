@@ -34,3 +34,8 @@ status_reset.txt
 
 # Legacy Flutter
 legacy_flutter/build/
+
+# Local MD files
+skil.md
+chat.md
+agent.md
