@@ -33,7 +33,6 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
                 val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
                 val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
 
-                val retriever = MediaMetadataRetriever()
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
                     val title = cursor.getString(titleColumn) ?: "Unknown"
@@ -44,16 +43,10 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
                     
                     // Allow all audio files, even if duration is not yet reported (e.g. FLACs)
                     if (duration >= 0) {
-                        var art: ByteArray? = null
-                        try {
-                            retriever.setDataSource(context, contentUri)
-                            art = retriever.embeddedPicture
-                        } catch (e: Exception) { /* ignore */ }
-                        
-                        songs.add(Song(id, title, artist, duration, contentUri.toString(), art))
+                        // Art is loaded lazily via ImageCache to drastically speed up initial load
+                        songs.add(Song(id, title, artist, duration, contentUri.toString(), null))
                     }
                 }
-                retriever.release()
             }
         } catch (e: Exception) {
             android.util.Log.e("VoidPlayer", "Error querying MediaStore", e)

@@ -1,17 +1,19 @@
-# Void Player 🎵
+# 🎵 Void Player
 
-A modern, professional music player built with **Kotlin Multiplatform** and **Compose Multiplatform** for Android and Desktop.
+![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
+![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+![Compose](https://img.shields.io/badge/Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
+
+A modern, high-performance music player built with **Kotlin Multiplatform** and **Compose Multiplatform** targeting Android and Desktop.
 
 ## ✨ Features
 
-- **Dynamic Gradient Theme**: Extracts the dominant color from the currently playing track's album cover and dynamically applies it to the app's background and player controls.
-- **Modern Solid Dark Mode**: A sleek, elevated dark surface design with professional Material vector icons that feels fast and looks premium.
-- **Cross-Platform**: Runs natively on Android and Desktop (JVM).
-- **Redesigned Player Island**: Interactive mini-player that expands into a full-screen experience with a large album cover display and smooth spring animations.
-- **Visualizer**: Real-time mock waveform visualization for an immersive playback experience.
-- **Smart Image Caching**: Highly efficient LRU (Least Recently Used) cache for album art for smoother scrolling and reduced memory bloat.
-- **Local Library**: Efficiently scans and plays music from your local device folders.
-- **Seamless Playback Sync**: High-frequency progress updates for real-time track synchronization.
+- 🎨 **Dynamic UI Theming**: Automatically extracts dominant colors from album covers to create gorgeous, immersive backgrounds and UI accents via asynchronous coroutine processing.
+- 📱 **Interactive Player Island**: A polished mini-player overlay that mimics a "Dynamic Island", smoothly expanding into a full-screen experience with physics-based spring animations.
+- 🚀 **Blazing Fast Local Library**: Instantly scans and loads thousands of local music files, skipping slow synchronous metadata extraction in favor of UI-driven lazy loading.
+- ⚡ **Highly Optimized Rendering**: Defers complex recompositions for sliders and waveform animations, guaranteeing smooth 60FPS UI transitions and maximizing battery life.
+- 💽 **Cross-Platform Architecture**: Clean `commonMain` UI architecture that runs seamlessly on both Android and Desktop (JVM) targets.
+- 🎵 **System Overlay Service**: Control your music from anywhere on Android via a system-wide floating Compose widget.
 
 ## 📥 Download
 
@@ -21,18 +23,18 @@ A modern, professional music player built with **Kotlin Multiplatform** and **Co
 
 - **Language**: Kotlin
 - **UI Framework**: Jetpack Compose Multiplatform
-- **Build System**: Gradle
-- **Architecture**: MVVM-like state management with `StateFlow` and `collectAsState`.
-- **Image Loading**: Platform-specific implementations using `BitmapFactory` (Android) and `Skia` (Desktop).
+- **Build System**: Gradle 
+- **Audio Engine**: Media3 `ExoPlayer` (Android)
+- **Architecture**: MVI/MVVM with `StateFlow` and heavily optimized `collectAsState` boundaries.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- JDK 17 or higher
-- Android Studio (for Android build)
+- JDK 17+
+- Android Studio Ladybug or newer
 - Gradle
 
-### Building the Project
+### Build & Run
 
 **Android:**
 ```bash
@@ -46,10 +48,9 @@ A modern, professional music player built with **Kotlin Multiplatform** and **Co
 
 ## 📂 Project Structure
 
-- `commonMain`: Shared UI and logic code (App.kt, generic repositories).
-- `androidMain`: Android-specific implementations (AudioPlayer, SongRepository, ImageUtils).
-- `desktopMain`: Desktop-specific implementations (AudioPlayer, ImageUtils).
+- `commonMain/`: Shared UI (`App.kt`, `PlayerIsland.kt`) and platform-agnostic models.
+- `androidMain/`: Android-specific implementations, including `AndroidAudioPlayer`, `OverlayService`, and the optimized `AndroidSongRepository`.
+- `desktopMain/`: Desktop-specific audio implementations.
 
 ## 📄 License
-
-This project is open-source.
+This project is open-source and free to modify.
