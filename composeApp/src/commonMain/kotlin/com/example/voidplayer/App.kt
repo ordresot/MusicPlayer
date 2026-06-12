@@ -41,9 +41,7 @@ fun App(
                 accentColor = cachedColor
                 currentArt = null
             } else {
-                scope.launch {
-                    currentArt = repository.loadArt(song.uri)
-                }
+                currentArt = repository.loadArt(song.uri)
             }
         } ?: run {
             currentArt = null

@@ -4,6 +4,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import com.example.voidplayer.toImageBitmap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * A simple bounded cache for ImageBitmaps to improve memory management and scroll performance.
@@ -64,7 +66,9 @@ fun rememberSongImage(
         if (bitmap == null) {
             val artBytes = repository.loadArt(song.uri)
             if (artBytes != null) {
-                val imgBitmap = artBytes.toImageBitmap()
+                val imgBitmap = withContext(Dispatchers.Default) {
+                    artBytes.toImageBitmap()
+                }
                 ImageCache.put(song.id.toString(), imgBitmap)
                 bitmap = imgBitmap
             }
