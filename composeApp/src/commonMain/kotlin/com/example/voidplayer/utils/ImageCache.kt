@@ -11,7 +11,7 @@ import kotlinx.coroutines.withContext
  * A simple bounded cache for ImageBitmaps to improve memory management and scroll performance.
  */
 object ImageCache {
-    private const val MAX_ENTRIES = 50
+    private val MAX_ENTRIES = if (maxMemoryMB <= 256) 30 else if (maxMemoryMB <= 512) 60 else 100
     private val cache = object : LinkedHashMap<String, ImageBitmap>(MAX_ENTRIES, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap>?): Boolean {
             return size > MAX_ENTRIES
@@ -67,10 +67,18 @@ fun rememberSongImage(
             val artBytes = repository.loadArt(song.uri)
             if (artBytes != null) {
                 val imgBitmap = withContext(Dispatchers.Default) {
-                    artBytes.toImageBitmap()
+                    try {
+                        artBytes.toImageBitmap()
+                    } catch (e: Throwable) {
+                        // toImageBitmap() can throw if the art data is corrupt.
+                        // Returning null here keeps the UI stable with the placeholder.
+                        null
+                    }
                 }
-                ImageCache.put(song.id.toString(), imgBitmap)
-                bitmap = imgBitmap
+                if (imgBitmap != null) {
+                    ImageCache.put(song.id.toString(), imgBitmap)
+                    bitmap = imgBitmap
+                }
             }
         }
     }

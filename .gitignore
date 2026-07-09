@@ -23,6 +23,7 @@ Thumbs.db
 *.log
 *.logcat
 *_log.txt
+*.apk
 desktop_build.log
 desktop_run_log.txt
 git_log.txt
@@ -39,3 +40,6 @@ legacy_flutter/build/
 skil.md
 chat.md
 agent.md
+
+# Security
+keystore.jks

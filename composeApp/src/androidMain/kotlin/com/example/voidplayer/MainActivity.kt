@@ -40,6 +40,12 @@ class MainActivity : ComponentActivity() {
            }
         }
         
+        val overlayPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { _ -> 
+            // Result checked when overlay starts
+        }
+        
         val folderPickerLauncher = registerForActivityResult(
             ActivityResultContracts.OpenDocumentTree()
         ) { uri ->
@@ -69,6 +75,13 @@ class MainActivity : ComponentActivity() {
         }
         
         permissionLauncher.launch(permissions.toTypedArray())
+
+        val hasPromptedOverlay = sharedPref.getBoolean("has_prompted_overlay", false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this) && !hasPromptedOverlay) {
+            sharedPref.edit().putBoolean("has_prompted_overlay", true).apply()
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+            overlayPermissionLauncher.launch(intent)
+        }
 
         setContent {
             App(

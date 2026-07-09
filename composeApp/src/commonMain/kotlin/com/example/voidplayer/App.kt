@@ -189,7 +189,7 @@ fun MainContent(
         }
         
         if (showSettings) {
-             SettingsDialog(
+             AudioSettingsScreen(
                  onDismiss = { showSettings = false }, 
                  player = player,
                  accentColor = accentColor

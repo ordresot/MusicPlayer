@@ -4,7 +4,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.audiofx.Equalizer
+import android.media.audiofx.DynamicsProcessing
 import android.os.Build
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -24,11 +27,31 @@ import kotlinx.coroutines.launch
 
 class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
 
-    private val player = ExoPlayer.Builder(context).build()
+    private val audioAttributes = AudioAttributes.Builder()
+        .setUsage(C.USAGE_MEDIA)
+        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+        .build()
+
+    // Simple, default ExoPlayer — no custom buffers or renderer factories
+    // which caused OOM and codec-loading crashes on many devices.
+    private val player = ExoPlayer.Builder(context)
+        .build()
+        .apply {
+            setAudioAttributes(audioAttributes, true)
+            setHandleAudioBecomingNoisy(true)
+            // WAKE_MODE_NONE: no WAKE_LOCK or WifiLock is acquired.
+            // WAKE_MODE_LOCAL and WAKE_MODE_NETWORK both require android.permission.WAKE_LOCK
+            // which is not declared in AndroidManifest.xml. Using them would throw
+            // SecurityException on strict devices. For local file playback, WAKE_MODE_NONE is
+            // correct — the screen stays on while the user is interacting with the app.
+            setWakeMode(C.WAKE_MODE_NONE)
+        }
+
     private val scope = CoroutineScope(Dispatchers.Main)
     
     private var mediaSession: MediaSession? = null
     private var androidEqualizer: Equalizer? = null
+    private var dynamicsProcessing: DynamicsProcessing? = null
 
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -50,6 +73,9 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
 
     private val _equalizerBands = MutableStateFlow<List<AudioPlayer.EqualizerBand>>(emptyList())
     override val equalizerBands: StateFlow<List<AudioPlayer.EqualizerBand>> = _equalizerBands.asStateFlow()
+    
+    private val _isNormalizationEnabled = MutableStateFlow(false)
+    override val isNormalizationEnabled: StateFlow<Boolean> = _isNormalizationEnabled.asStateFlow()
 
     private var playlist: List<Song> = emptyList()
     private var progressJob: Job? = null
@@ -68,9 +94,18 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
                 if (isPlaying) {
                     startProgressUpdate()
                     startPlaybackService()
-                    ensureEqualizer()
                 } else {
                     stopProgressUpdate()
+                }
+            }
+
+            // Only attach DSP effects once ExoPlayer has a valid audio session.
+            // Attaching with audioSessionId == 0 causes a native SIGSEGV crash
+            // in libeffect that bypasses all Kotlin try-catch blocks.
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                if (audioSessionId != 0 && audioSessionId != C.AUDIO_SESSION_ID_UNSET) {
+                    ensureEqualizer()
+                    ensureNormalization()
                 }
             }
 
@@ -99,55 +134,115 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
 
     private fun updateCurrentSongMetadata() {
         val current = _currentSong.value ?: return
-        val duration = if (player.duration != androidx.media3.common.C.TIME_UNSET) player.duration else current.duration
+        val duration = if (player.duration != C.TIME_UNSET) player.duration else current.duration
         val artist = player.mediaMetadata.artist?.toString() ?: current.artist
-        // Only title if it's not empty? Usually filename is a decent fallback, but metadata title is better.
         val title = player.mediaMetadata.title?.toString() ?: current.title
         
         if (duration != current.duration || artist != current.artist || title != current.title) {
             _currentSong.value = current.copy(
                 duration = duration,
-                artist = if(artist == "Unknown Artist") "Unknown Artist" else artist, // Keep Unknown if unknown
+                artist = if (artist == "Unknown Artist") "Unknown Artist" else artist,
                 title = title
             )
         }
     }
 
     private fun ensureEqualizer() {
-        if (androidEqualizer == null) {
-            try {
-                androidEqualizer = Equalizer(0, player.audioSessionId).apply {
-                    enabled = true
-                }
-                updateEqualizerBandsState()
-            } catch (e: Exception) {
-                e.printStackTrace()
+        val sessionId = player.audioSessionId
+        if (sessionId == 0 || sessionId == C.AUDIO_SESSION_ID_UNSET) return
+        if (androidEqualizer != null) return
+        
+        try {
+            androidEqualizer = Equalizer(0, sessionId).apply {
+                enabled = true
             }
+            updateEqualizerBandsState()
+        } catch (e: Throwable) {
+            // Thrown on devices without hardware DSP support or on custom ROMs
+            // that strip the audio effect libraries. Silently ignore.
+            e.printStackTrace()
         }
     }
 
     private fun updateEqualizerBandsState() {
         val eq = androidEqualizer ?: return
-        val bands = mutableListOf<AudioPlayer.EqualizerBand>()
-        val minMax = eq.bandLevelRange
-        for (i in 0 until eq.numberOfBands) {
-            bands.add(
-                AudioPlayer.EqualizerBand(
-                    frequency = eq.getCenterFreq(i.toShort()) / 1000,
-                    level = eq.getBandLevel(i.toShort()).toInt(),
-                    minLevel = minMax[0].toInt(),
-                    maxLevel = minMax[1].toInt()
+        try {
+            val bands = mutableListOf<AudioPlayer.EqualizerBand>()
+            val minMax = eq.bandLevelRange
+            for (i in 0 until eq.numberOfBands) {
+                bands.add(
+                    AudioPlayer.EqualizerBand(
+                        frequency = eq.getCenterFreq(i.toShort()) / 1000,
+                        level = eq.getBandLevel(i.toShort()).toInt(),
+                        minLevel = minMax[0].toInt(),
+                        maxLevel = minMax[1].toInt()
+                    )
                 )
-            )
+            }
+            _equalizerBands.value = bands
+        } catch (e: Throwable) {
+            e.printStackTrace()
         }
-        _equalizerBands.value = bands
     }
 
     override fun setEqualizerBandLevel(bandIndex: Int, level: Int) {
         ensureEqualizer()
-        androidEqualizer?.let { eq ->
-            eq.setBandLevel(bandIndex.toShort(), level.toShort())
-            updateEqualizerBandsState()
+        try {
+            androidEqualizer?.let { eq ->
+                eq.setBandLevel(bandIndex.toShort(), level.toShort())
+                updateEqualizerBandsState()
+            }
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun resetEqualizer() {
+        try {
+            androidEqualizer?.let { eq ->
+                for (i in 0 until eq.numberOfBands) {
+                    eq.setBandLevel(i.toShort(), 0)
+                }
+                updateEqualizerBandsState()
+            }
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun ensureNormalization() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return // DynamicsProcessing requires API 28+
+        val sessionId = player.audioSessionId
+        if (sessionId == 0 || sessionId == C.AUDIO_SESSION_ID_UNSET) return
+        if (dynamicsProcessing != null) return
+        
+        try {
+            val builder = DynamicsProcessing.Config.Builder(
+                DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
+                2, // 2 channels (Stereo)
+                false, 0, // no pre-eq
+                true, 1,  // multiband compressor (1 band)
+                false, 0, // no post-eq
+                true      // limiter enabled
+            )
+            dynamicsProcessing = DynamicsProcessing(0, sessionId, builder.build()).apply {
+                enabled = _isNormalizationEnabled.value
+            }
+        } catch (e: Throwable) {
+            // DynamicsProcessing may not exist on older/custom ROM devices even if API >= 28.
+            // Silently ignore to preserve playback.
+            e.printStackTrace()
+        }
+    }
+
+    override fun toggleNormalization() {
+        val newValue = !_isNormalizationEnabled.value
+        _isNormalizationEnabled.value = newValue
+        ensureNormalization()
+        try {
+            dynamicsProcessing?.enabled = newValue
+        } catch (e: Throwable) {
+            e.printStackTrace()
         }
     }
 
@@ -164,14 +259,15 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
     }
 
     private fun startPlaybackService() {
+        // PlaybackService is a MediaSessionService. Media3 manages its own foreground
+        // lifecycle internally. We only need a regular startService() to bind to it —
+        // calling startForegroundService() from outside would cause a
+        // ForegroundServiceStartNotAllowedException on Android 12+ if the app is
+        // in the background, as the service won't call startForeground() fast enough.
         try {
             val intent = Intent(context, PlaybackService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        } catch (e: Exception) {
+            context.startService(intent)
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
     }
@@ -270,7 +366,7 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
         progressJob = scope.launch {
             while (isActive) {
                 _currentPosition.value = player.currentPosition
-                delay(250) // Smoother UI updates
+                delay(250)
             }
         }
     }
@@ -283,8 +379,14 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
     override fun cleanUp() {
         mediaSession?.release()
         mediaSession = null
-        androidEqualizer?.release()
+        try {
+            androidEqualizer?.release()
+        } catch (e: Throwable) { e.printStackTrace() }
         androidEqualizer = null
+        try {
+            dynamicsProcessing?.release()
+        } catch (e: Throwable) { e.printStackTrace() }
+        dynamicsProcessing = null
         player.release()
         stopProgressUpdate()
     }

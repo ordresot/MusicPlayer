@@ -67,8 +67,14 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (overlayView == null) {
-            showOverlay()
+        try {
+            if (overlayView == null) {
+                showOverlay()
+            }
+        } catch (e: Throwable) {
+            // Guard against UninitializedPropertyAccessException if Android restarted
+            // the service process without going through Application.onCreate() first.
+            e.printStackTrace()
         }
         return START_STICKY
     }
@@ -113,8 +119,14 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 val accentColor = art?.let { getDominantColor(it) } ?: Color(0xFF00F0FF)
 
                 LaunchedEffect(isExpanded) {
-                    params.width = if (isExpanded) WindowManager.LayoutParams.MATCH_PARENT else WindowManager.LayoutParams.WRAP_CONTENT
-                    windowManager.updateViewLayout(this@apply, params)
+                    try {
+                        params.width = if (isExpanded) WindowManager.LayoutParams.MATCH_PARENT else WindowManager.LayoutParams.WRAP_CONTENT
+                        windowManager.updateViewLayout(this@apply, params)
+                    } catch (e: Throwable) {
+                        // View may have been detached from the window if the service was
+                        // destroyed between the LaunchedEffect trigger and its execution.
+                        e.printStackTrace()
+                    }
                 }
 
                 currentSong?.let { song ->
@@ -187,7 +199,10 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 contentAlignment = Alignment.Center
             ) {
                 art?.let {
-                    Image(bitmap = it.toImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(CircleShape))
+                    val bmp = try { it.toImageBitmap() } catch (_: Throwable) { null }
+                    if (bmp != null) {
+                        Image(bitmap = bmp, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(CircleShape))
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -219,7 +234,10 @@ class OverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Color.DarkGray)) {
                     art?.let {
-                        Image(bitmap = it.toImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        val bmp = try { it.toImageBitmap() } catch (_: Throwable) { null }
+                        if (bmp != null) {
+                            Image(bitmap = bmp, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))

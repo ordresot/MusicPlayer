@@ -32,6 +32,11 @@ kotlin {
                 implementation(libs.koin.compose)
             }
         }
+        val commonTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
         val androidMain by getting {
             dependencies {
                 implementation(libs.androidx.activity.compose)
@@ -57,10 +62,10 @@ android {
 
     defaultConfig {
         applicationId = "com.example.voidplayer"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34 // Android 14 (35 optional)
-        versionCode = 3
-        versionName = "2.0"
+        versionCode = 4
+        versionName = "2.1"
     }
     
     signingConfigs {
@@ -104,7 +109,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "VoidPlayer"
-            packageVersion = "2.0.0"
+            packageVersion = "2.1.0"
         }
     }
 }

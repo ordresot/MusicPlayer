@@ -1,0 +1,7 @@
+VoidPlayer v2.1 Release:
+
+- Implemented dynamic downsampling for album art to drastically improve memory efficiency on low-end 2GB devices.
+- Forced RGB_565 decoding for album art to cut RAM usage by a further 50%.
+- Fixed Player Island Overlay permission handling for modern Android versions.
+- Activated the previously hidden Song List and Expanded Player dropdown menus.
+- Bumped minimum Android requirement to Android 8.0 (API 26) for better compatibility and performance.

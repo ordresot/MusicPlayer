@@ -98,8 +98,24 @@ fun SongItem(
             )
         }
         
-        IconButton(onClick = { /* TODO Options menu */ }) {
-             Icon(Icons.Filled.MoreVert, contentDescription = "Options", tint = SecondaryText)
+        var expanded by remember { mutableStateOf(false) }
+        Box {
+            IconButton(onClick = { expanded = true }) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "Options", tint = SecondaryText)
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Play Next") },
+                    onClick = { expanded = false }
+                )
+                DropdownMenuItem(
+                    text = { Text("Add to Playlist") },
+                    onClick = { expanded = false }
+                )
+            }
         }
     }
 }

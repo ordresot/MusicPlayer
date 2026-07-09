@@ -206,8 +206,24 @@ fun FullScreenPlayer(
                 style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 4.sp),
                 color = SecondaryText
             )
-            IconButton(onClick = { }) {
-                Icon(Icons.Rounded.MoreVert, contentDescription = "More", tint = PrimaryText, modifier = Modifier.size(28.dp))
+            var expandedMenu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { expandedMenu = true }) {
+                    Icon(Icons.Rounded.MoreVert, contentDescription = "More", tint = PrimaryText, modifier = Modifier.size(28.dp))
+                }
+                DropdownMenu(
+                    expanded = expandedMenu,
+                    onDismissRequest = { expandedMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("View Album") },
+                        onClick = { expandedMenu = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Add to Playlist") },
+                        onClick = { expandedMenu = false }
+                    )
+                }
             }
         }
 
@@ -380,5 +396,5 @@ fun formatTime(millis: Long): String {
     val totalSeconds = millis / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return String.format("%02d:%02d", minutes, seconds)
+    return String.format("%d:%02d", minutes, seconds)
 }

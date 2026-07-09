@@ -1,0 +1,12 @@
+VoidPlayer is a premium, open-source local music player for Android, crafted with Kotlin Multiplatform and Jetpack Compose. 
+
+It is designed with a heavy emphasis on modern UI aesthetics, dynamic colors, and buttery smooth performance, without any ads, trackers, or hidden analytics.
+
+Features:
+- Completely Free and Open Source (FOSS)
+- Gorgeous UI with Dynamic Colors extracted from your album art
+- Dynamic Island Player Overlay (access your music from anywhere)
+- Media3 ExoPlayer Engine for high-fidelity audio
+- Battery-efficient local file scanning
+- Built-in Equalizer
+- No telemetry, no ads, completely private
