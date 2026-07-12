@@ -17,7 +17,7 @@ Builds:
     subdir: composeApp
     gradle:
       - yes
-    output: composeApp/build/outputs/apk/release/VoidPlayer-2.1-release.apk
+    output: build/outputs/apk/release/VoidPlayer-2.1-release.apk
     binary: https://github.com/TUSHAR91316/Void-Player/releases/download/V2.1/VoidPlayer-2.1-release.apk
 
 AutoUpdateMode: Version
