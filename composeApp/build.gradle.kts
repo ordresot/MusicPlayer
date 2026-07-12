@@ -1,4 +1,4 @@
-﻿import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -66,6 +66,11 @@ android {
         targetSdk = 34 // Android 14 (35 optional)
         versionCode = 4
         versionName = "2.1"
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
     
     signingConfigs {
