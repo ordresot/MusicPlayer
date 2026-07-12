@@ -24,3 +24,6 @@ AutoUpdateMode: Version
 UpdateCheckMode: Tags
 CurrentVersion: '2.1'
 CurrentVersionCode: 4
+
+AllowedAPKSigningKeys:
+  - 00641526bfffd5ba42bc392504ed2207d3d9f69d78868574ce3a26aec76e5b21
