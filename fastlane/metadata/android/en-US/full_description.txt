@@ -1,4 +1,4 @@
-VoidPlayer is a premium, open-source local music player for Android, crafted with Kotlin Multiplatform and Jetpack Compose. 
+﻿VoidPlayer is a premium, open-source local music player for Android, crafted with Kotlin Multiplatform and Jetpack Compose.
 
 It is designed with a heavy emphasis on modern UI aesthetics, dynamic colors, and buttery smooth performance, without any ads, trackers, or hidden analytics.
 

@@ -1,1 +1,1 @@
-VoidPlayer is a beautiful, modern, and open-source local music player.
+﻿Modern, high-performance music player with dynamic UI
