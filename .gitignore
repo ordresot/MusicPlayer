@@ -30,8 +30,8 @@ git_log.txt
 status_reset.txt
 
 # Root images (Temporary assets)
-*.png
-*.webp
+/*.png
+/*.webp
 
 # Legacy Flutter
 legacy_flutter/build/
