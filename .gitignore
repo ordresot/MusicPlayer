@@ -44,3 +44,6 @@ agent.md
 # Security
 keystore.jks
 F-Droid-Submission-Guide.md
+
+# Visual Studio workspace files
+legacy_flutter/.vs/
