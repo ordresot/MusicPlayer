@@ -14,8 +14,9 @@ Builds:
   - versionName: '2.1'
     versionCode: 4
     commit: V2.1
+    subdir: composeApp
     gradle:
-      - composeApp
+      - yes
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
