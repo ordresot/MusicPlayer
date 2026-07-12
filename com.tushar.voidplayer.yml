@@ -6,20 +6,17 @@ SourceCode: https://github.com/TUSHAR91316/Void-Player
 IssueTracker: https://github.com/TUSHAR91316/Void-Player/issues
 
 AutoName: Void Player
-Summary: Modern, high-performance music player with dynamic UI
-
 RepoType: git
 Repo: https://github.com/TUSHAR91316/Void-Player.git
 
 Builds:
-  - versionName: 2.1
+  - versionName: "2.1"
     versionCode: 4
     commit: V2.1
-    subdir: composeApp
     gradle:
-      - yes
+      - composeApp
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 2.1
+CurrentVersion: "2.1"
 CurrentVersionCode: 4
