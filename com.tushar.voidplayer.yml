@@ -1,16 +1,16 @@
 Categories:
   - Multimedia
-License: MIT
 WebSite: https://github.com/TUSHAR91316/Void-Player
 SourceCode: https://github.com/TUSHAR91316/Void-Player
 IssueTracker: https://github.com/TUSHAR91316/Void-Player/issues
 
 AutoName: Void Player
+
 RepoType: git
 Repo: https://github.com/TUSHAR91316/Void-Player.git
 
 Builds:
-  - versionName: "2.1"
+  - versionName: '2.1'
     versionCode: 4
     commit: V2.1
     gradle:
@@ -18,5 +18,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: "2.1"
+CurrentVersion: '2.1'
 CurrentVersionCode: 4
