@@ -1,9 +1,9 @@
-import androidx.compose.ui.window.Window
+﻿import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import com.example.voidplayer.App
-import com.example.voidplayer.data.SongRepository
-import com.example.voidplayer.model.Song
-import com.example.voidplayer.player.AudioPlayer
+import com.tushar.voidplayer.App
+import com.tushar.voidplayer.data.SongRepository
+import com.tushar.voidplayer.model.Song
+import com.tushar.voidplayer.player.AudioPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

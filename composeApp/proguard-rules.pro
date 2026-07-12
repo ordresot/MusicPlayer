@@ -1,4 +1,4 @@
-# R8 / ProGuard Rules for VoidPlayer
+﻿# R8 / ProGuard Rules for VoidPlayer
 
 # Keep Koin
 -keep class org.koin.** { *; }
@@ -12,4 +12,4 @@
 -keep class androidx.compose.** { *; }
 
 # Keep App Models for Reflection/Serialization (if needed)
--keep class com.example.voidplayer.model.** { *; }
+-keep class com.tushar.voidplayer.model.** { *; }

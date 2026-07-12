@@ -1,4 +1,4 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+﻿import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -57,11 +57,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.example.voidplayer"
+    namespace = "com.tushar.voidplayer"
     compileSdk = 35 // Android 15
 
     defaultConfig {
-        applicationId = "com.example.voidplayer"
+        applicationId = "com.tushar.voidplayer"
         minSdk = 26
         targetSdk = 34 // Android 14 (35 optional)
         versionCode = 4
