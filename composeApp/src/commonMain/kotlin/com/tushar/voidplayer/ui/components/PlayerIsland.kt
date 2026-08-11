@@ -1,4 +1,4 @@
-﻿package com.tushar.voidplayer.ui.components
+package com.tushar.voidplayer.ui.components
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -12,6 +12,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,7 +44,8 @@ fun DynamicIsland(
     repository: SongRepository,
     isExpanded: Boolean,
     accentColor: Color,
-    onToggleExpand: () -> Unit
+    onToggleExpand: () -> Unit,
+    onToggleFavorite: ((Song) -> Unit)? = null
 ) {
     val isPlaying by player.isPlaying.collectAsState()
 
@@ -61,7 +65,7 @@ fun DynamicIsland(
         modifier = modifier
             .padding(bottom = 20.dp)
             .size(width = width, height = height)
-            .shadow(24.dp, RoundedCornerShape(cornerRadius), spotColor = accentColor.copy(alpha=0.5f))
+            .shadow(24.dp, RoundedCornerShape(cornerRadius), spotColor = accentColor.copy(alpha = 0.5f))
             .clip(RoundedCornerShape(cornerRadius))
             .background(SurfaceElevated)
             .clickable(
@@ -69,9 +73,10 @@ fun DynamicIsland(
                 indication = null
             ) { onToggleExpand() }
     ) {
-        // Dynamic Gradient Background for the Island
+        // Dynamic gradient background for the Island
         Box(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
@@ -84,12 +89,17 @@ fun DynamicIsland(
 
         AnimatedContent(
             targetState = isExpanded,
-            transitionSpec = {
-                (fadeIn(tween(400))).togetherWith(fadeOut(tween(200)))
-            }
+            transitionSpec = { fadeIn(tween(400)).togetherWith(fadeOut(tween(200))) }
         ) { expanded ->
             if (expanded) {
-                FullScreenPlayer(song, bitmap, player, accentColor, onToggleExpand)
+                FullScreenPlayer(
+                    song = song,
+                    bitmap = bitmap,
+                    player = player,
+                    accentColor = accentColor,
+                    onCollapse = onToggleExpand,
+                    onToggleFavorite = onToggleFavorite
+                )
             } else {
                 CompactIsland(
                     song = song,
@@ -115,7 +125,9 @@ fun CompactIsland(
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -134,13 +146,20 @@ fun CompactIsland(
                     )
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(24.dp))
+                        Icon(
+                            Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
 
             Column(
-                modifier = Modifier.weight(1f).padding(horizontal = 14.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 14.dp),
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
@@ -163,7 +182,7 @@ fun CompactIsland(
             IconButton(onClick = onPlayPause) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = null,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
                     tint = accentColor,
                     modifier = Modifier.size(32.dp)
                 )
@@ -181,11 +200,16 @@ fun FullScreenPlayer(
     bitmap: androidx.compose.ui.graphics.ImageBitmap?,
     player: AudioPlayer,
     accentColor: Color,
-    onCollapse: () -> Unit
+    onCollapse: () -> Unit,
+    onToggleFavorite: ((Song) -> Unit)? = null
 ) {
     val isPlaying by player.isPlaying.collectAsState()
     val isShuffle by player.isShuffle.collectAsState()
     val repeatMode by player.repeatMode.collectAsState()
+
+    // Track local favorite state, re-syncing when the song identity changes.
+    var isFav by remember(song.id, song.isFavorite) { mutableStateOf(song.isFavorite) }
+    var showLyrics by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -193,13 +217,19 @@ fun FullScreenPlayer(
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // --- Top bar ---
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onCollapse) {
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Collapse", tint = PrimaryText, modifier = Modifier.size(32.dp))
+                Icon(
+                    Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = "Collapse",
+                    tint = PrimaryText,
+                    modifier = Modifier.size(32.dp)
+                )
             }
             Text(
                 text = "NOW PLAYING",
@@ -216,10 +246,6 @@ fun FullScreenPlayer(
                     onDismissRequest = { expandedMenu = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("View Album") },
-                        onClick = { expandedMenu = false }
-                    )
-                    DropdownMenuItem(
                         text = { Text("Add to Playlist") },
                         onClick = { expandedMenu = false }
                     )
@@ -229,50 +255,108 @@ fun FullScreenPlayer(
 
         Spacer(modifier = Modifier.weight(0.1f))
 
-        Box(
-            modifier = Modifier
-                .size(280.dp) // Increased size
-                .shadow(40.dp, RoundedCornerShape(24.dp), spotColor = accentColor.copy(alpha=0.6f))
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFF222222))
-        ) {
-            if (bitmap != null) {
-                Image(
-                    bitmap = bitmap,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+        // --- Album art / Lyrics panel ---
+        if (showLyrics) {
+            Box(
+                modifier = Modifier
+                    .size(280.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "♪ Synced Lyrics ♪\n(No .lrc file found for this song)",
+                    color = PrimaryText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.bodyMedium
                 )
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = Color.DarkGray, modifier = Modifier.size(80.dp))
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(280.dp)
+                    .shadow(40.dp, RoundedCornerShape(24.dp), spotColor = accentColor.copy(alpha = 0.6f))
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF222222))
+            ) {
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            tint = Color.DarkGray,
+                            modifier = Modifier.size(80.dp)
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.weight(0.1f))
+        Spacer(modifier = Modifier.weight(0.05f))
 
-        Text(
-            text = song.title,
-            color = PrimaryText,
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = song.artist,
-            color = SecondaryText,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1
-        )
+        // --- Song info + action buttons ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = song.title,
+                    color = PrimaryText,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = song.artist,
+                    color = SecondaryText,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
-        Spacer(modifier = Modifier.height(32.dp))
+            IconButton(onClick = {
+                isFav = !isFav
+                onToggleFavorite?.invoke(song.copy(isFavorite = isFav))
+            }) {
+                Icon(
+                    imageVector = if (isFav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = if (isFav) "Remove from favorites" else "Add to favorites",
+                    tint = if (isFav) Color(0xFFFF4081) else SecondaryText,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
 
-        // Control Section
+            IconButton(onClick = { showLyrics = !showLyrics }) {
+                Icon(
+                    imageVector = Icons.Filled.Subtitles,
+                    contentDescription = if (showLyrics) "Hide lyrics" else "Show lyrics",
+                    tint = if (showLyrics) accentColor else SecondaryText,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // --- Controls ---
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Progress is isolated in its own composable so position ticks
+            // (every 250ms) only recompose the progress row, not the whole player.
             FullScreenProgress(song, player, accentColor)
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -292,7 +376,12 @@ fun FullScreenPlayer(
                 }
 
                 IconButton(onClick = { player.previous() }) {
-                    Icon(Icons.Rounded.SkipPrevious, contentDescription = "Previous", tint = PrimaryText, modifier = Modifier.size(48.dp))
+                    Icon(
+                        Icons.Rounded.SkipPrevious,
+                        contentDescription = "Previous",
+                        tint = PrimaryText,
+                        modifier = Modifier.size(48.dp)
+                    )
                 }
 
                 Box(
@@ -304,14 +393,19 @@ fun FullScreenPlayer(
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = "Play/Pause",
+                        contentDescription = if (isPlaying) "Pause" else "Play",
                         tint = Color.Black,
                         modifier = Modifier.size(40.dp)
                     )
                 }
 
                 IconButton(onClick = { player.next() }) {
-                    Icon(Icons.Rounded.SkipNext, contentDescription = "Next", tint = PrimaryText, modifier = Modifier.size(48.dp))
+                    Icon(
+                        Icons.Rounded.SkipNext,
+                        contentDescription = "Next",
+                        tint = PrimaryText,
+                        modifier = Modifier.size(48.dp)
+                    )
                 }
 
                 IconButton(onClick = { player.toggleRepeat() }) {
@@ -333,16 +427,29 @@ fun FullScreenPlayer(
     }
 }
 
+// ------------------------------------------------------------------
+// Progress composables — isolated to prevent full player recomposition
+// ------------------------------------------------------------------
+
 @Composable
-fun CompactProgress(song: Song, player: AudioPlayer, accentColor: Color, modifier: Modifier = Modifier) {
+fun CompactProgress(
+    song: Song,
+    player: AudioPlayer,
+    accentColor: Color,
+    modifier: Modifier = Modifier
+) {
     val currentPosition by player.currentPosition.collectAsState()
+    // derivedStateOf prevents re-drawing unless the ratio actually changes
+    val progress by remember { derivedStateOf {
+        if (song.duration > 0) (currentPosition.toFloat() / song.duration).coerceIn(0f, 1f) else 0f
+    }}
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(2.dp)
             .background(Color.White.copy(alpha = 0.1f))
     ) {
-        val progress = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f
         Box(
             modifier = Modifier
                 .fillMaxWidth(progress)
@@ -356,10 +463,13 @@ fun CompactProgress(song: Song, player: AudioPlayer, accentColor: Color, modifie
 @Composable
 fun FullScreenProgress(song: Song, player: AudioPlayer, accentColor: Color) {
     val currentPosition by player.currentPosition.collectAsState()
-    
+    val safeProgress by remember { derivedStateOf {
+        if (song.duration > 0) (currentPosition.toFloat() / song.duration).coerceIn(0f, 1f) else 0f
+    }}
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Slider(
-            value = if (song.duration > 0) currentPosition.toFloat() / song.duration else 0f,
+            value = safeProgress,
             onValueChange = { player.seekTo((it * song.duration).toLong()) },
             colors = SliderDefaults.colors(
                 thumbColor = accentColor,
@@ -383,7 +493,9 @@ fun FullScreenProgress(song: Song, player: AudioPlayer, accentColor: Color) {
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(formatTime(currentPosition), color = SecondaryText, fontSize = 12.sp)
@@ -393,8 +505,9 @@ fun FullScreenProgress(song: Song, player: AudioPlayer, accentColor: Color) {
 }
 
 fun formatTime(millis: Long): String {
+    if (millis <= 0L) return "0:00"
     val totalSeconds = millis / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return String.format("%d:%02d", minutes, seconds)
+    return "$minutes:${seconds.toString().padStart(2, '0')}"
 }

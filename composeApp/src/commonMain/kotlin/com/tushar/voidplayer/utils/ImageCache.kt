@@ -1,4 +1,4 @@
-﻿package com.tushar.voidplayer.utils
+package com.tushar.voidplayer.utils
 
 import androidx.compose.ui.graphics.ImageBitmap
 import com.tushar.voidplayer.toImageBitmap
@@ -8,60 +8,68 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * A simple bounded cache for ImageBitmaps to improve memory management and scroll performance.
+ * A bounded LRU cache for [ImageBitmap] instances.
+ *
+ * All public operations are @Synchronized to prevent data races when bitmap
+ * loading coroutines (on Dispatchers.Default) and composition reads
+ * (on the Main thread) access the cache concurrently.
  */
 object ImageCache {
     private val MAX_ENTRIES = if (maxMemoryMB <= 256) 30 else if (maxMemoryMB <= 512) 60 else 100
-    private val cache = object : LinkedHashMap<String, ImageBitmap>(MAX_ENTRIES, 0.75f, true) {
+
+    private val cache = object : java.util.LinkedHashMap<String, ImageBitmap>(MAX_ENTRIES, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap>?): Boolean {
             return size > MAX_ENTRIES
         }
     }
 
-    fun get(key: String): ImageBitmap? {
-        return cache[key]
-    }
+    @Synchronized
+    fun get(key: String): ImageBitmap? = cache[key]
 
-    fun put(key: String, bitmap: ImageBitmap) {
-        cache[key] = bitmap
-    }
-    
-    fun clear() {
-        cache.clear()
-    }
+    @Synchronized
+    fun put(key: String, bitmap: ImageBitmap) { cache[key] = bitmap }
+
+    @Synchronized
+    fun clear() = cache.clear()
 }
 
 /**
- * A cache for dominant colors to avoid recalculating them on song changes.
+ * A bounded LRU cache for dominant accent colors derived from album art.
+ *
+ * Synchronized for the same reasons as [ImageCache].
  */
 object ColorCache {
     private const val MAX_ENTRIES = 50
-    private val cache = object : LinkedHashMap<String, androidx.compose.ui.graphics.Color>(MAX_ENTRIES, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, androidx.compose.ui.graphics.Color>?): Boolean {
-            return size > MAX_ENTRIES
-        }
+
+    private val cache = object : java.util.LinkedHashMap<String, androidx.compose.ui.graphics.Color>(MAX_ENTRIES, 0.75f, true) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<String, androidx.compose.ui.graphics.Color>?
+        ): Boolean = size > MAX_ENTRIES
     }
 
+    @Synchronized
     fun get(key: String): androidx.compose.ui.graphics.Color? = cache[key]
 
-    fun put(key: String, color: androidx.compose.ui.graphics.Color) {
-        cache[key] = color
-    }
-    
-    fun clear() {
-        cache.clear()
-    }
+    @Synchronized
+    fun put(key: String, color: androidx.compose.ui.graphics.Color) { cache[key] = color }
+
+    @Synchronized
+    fun clear() = cache.clear()
 }
+
+// ------------------------------------------------------------------
+// Composable helper
+// ------------------------------------------------------------------
 
 @androidx.compose.runtime.Composable
 fun rememberSongImage(
     song: com.tushar.voidplayer.model.Song,
     repository: com.tushar.voidplayer.data.SongRepository
 ): ImageBitmap? {
-    var bitmap by androidx.compose.runtime.remember(song.id) { 
-        androidx.compose.runtime.mutableStateOf(ImageCache.get(song.id.toString())) 
+    var bitmap by androidx.compose.runtime.remember(song.id) {
+        androidx.compose.runtime.mutableStateOf(ImageCache.get(song.id.toString()))
     }
-    
+
     androidx.compose.runtime.LaunchedEffect(song.id) {
         if (bitmap == null) {
             val artBytes = repository.loadArt(song.uri)
@@ -69,9 +77,8 @@ fun rememberSongImage(
                 val imgBitmap = withContext(Dispatchers.Default) {
                     try {
                         artBytes.toImageBitmap()
-                    } catch (e: Throwable) {
-                        // toImageBitmap() can throw if the art data is corrupt.
-                        // Returning null here keeps the UI stable with the placeholder.
+                    } catch (_: Throwable) {
+                        // Art data may be corrupt — return null to keep UI stable with placeholder.
                         null
                     }
                 }
@@ -82,5 +89,6 @@ fun rememberSongImage(
             }
         }
     }
+
     return bitmap
 }

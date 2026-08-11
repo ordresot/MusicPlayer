@@ -1,4 +1,4 @@
-﻿package com.tushar.voidplayer.ui.components
+package com.tushar.voidplayer.ui.components
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -92,6 +92,79 @@ fun AudioSettingsScreen(onDismiss: () -> Unit, player: AudioPlayer, accentColor:
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Sleep Timer Section
+            val isTimerActive by com.tushar.voidplayer.utils.SleepTimerManager.isActive.collectAsState()
+            val remainingSecs by com.tushar.voidplayer.utils.SleepTimerManager.remainingSeconds.collectAsState()
+            var selectedMinutes by remember { mutableStateOf(0) }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                color = SurfaceElevated,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Sleep Timer", color = PrimaryText, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            val subtitleText = if (isTimerActive) {
+                                if (com.tushar.voidplayer.utils.SleepTimerManager.stopAtEndOfSong) "Stopping at end of song"
+                                else "Pausing in ${remainingSecs / 60}m ${remainingSecs % 60}s"
+                            } else "Automatically pause playback"
+                            Text(subtitleText, color = if (isTimerActive) accentColor else Color.Gray, fontSize = 12.sp)
+                        }
+
+                        if (isTimerActive) {
+                            TextButton(onClick = { com.tushar.voidplayer.utils.SleepTimerManager.cancel() }) {
+                                Text("CANCEL", color = Color.Red, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(15, 30, 45, 60).forEach { mins ->
+                            FilterChip(
+                                selected = isTimerActive && selectedMinutes == mins && !com.tushar.voidplayer.utils.SleepTimerManager.stopAtEndOfSong,
+                                onClick = {
+                                    selectedMinutes = mins
+                                    com.tushar.voidplayer.utils.SleepTimerManager.startTimer(mins) {
+                                        player.pause()
+                                    }
+                                },
+                                label = { Text("${mins}m") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = accentColor,
+                                    selectedLabelColor = Color.Black
+                                )
+                            )
+                        }
+                        FilterChip(
+                            selected = isTimerActive && com.tushar.voidplayer.utils.SleepTimerManager.stopAtEndOfSong,
+                            onClick = {
+                                com.tushar.voidplayer.utils.SleepTimerManager.startEndOfSongTimer()
+                            },
+                            label = { Text("End of Song") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = accentColor,
+                                selectedLabelColor = Color.Black
+                            )
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Legal & About Section
             Surface(
                 modifier = Modifier
@@ -160,7 +233,7 @@ fun AudioSettingsScreen(onDismiss: () -> Unit, player: AudioPlayer, accentColor:
                                     modifier = Modifier.width(60.dp)
                                 ) {
                                     Text(
-                                        text = "${band.level / 100}dB",
+                                        text = "${"%.1f".format(band.level / 100f)}dB",
                                         color = Color.Gray,
                                         fontSize = 10.sp
                                     )

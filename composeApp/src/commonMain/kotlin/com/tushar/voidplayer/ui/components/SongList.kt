@@ -1,4 +1,4 @@
-﻿package com.tushar.voidplayer.ui.components
+package com.tushar.voidplayer.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,9 +35,11 @@ fun SongItem(
     repository: SongRepository,
     isPlaying: Boolean,
     accentColor: Color,
+    onToggleFavorite: ((Song) -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val bitmap = com.tushar.voidplayer.utils.rememberSongImage(song, repository)
+    var isFav by remember(song.id, song.isFavorite) { mutableStateOf(song.isFavorite) }
 
     Row(
         modifier = Modifier
@@ -62,7 +66,7 @@ fun SongItem(
                 )
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("â™ª", color = SecondaryText, fontSize = 20.sp)
+                    Text("♪", color = SecondaryText, fontSize = 20.sp)
                 }
             }
 
@@ -98,6 +102,18 @@ fun SongItem(
             )
         }
         
+        IconButton(onClick = {
+            isFav = !isFav
+            onToggleFavorite?.invoke(song.copy(isFavorite = isFav))
+        }) {
+            Icon(
+                imageVector = if (isFav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                contentDescription = "Favorite",
+                tint = if (isFav) Color(0xFFFF4081) else SecondaryText,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
         var expanded by remember { mutableStateOf(false) }
         Box {
             IconButton(onClick = { expanded = true }) {
@@ -168,7 +184,7 @@ fun EmptyState(onPickFolder: () -> Unit, statusMessage: String) {
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            imageVector = Icons.Filled.Home,
+            imageVector = Icons.Filled.MusicNote,
             contentDescription = null,
             tint = SecondaryText,
             modifier = Modifier.size(64.dp)

@@ -1,4 +1,4 @@
-﻿package com.tushar.voidplayer
+package com.tushar.voidplayer
 
 import android.Manifest
 import android.content.Intent
@@ -99,20 +99,32 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         if (Settings.canDrawOverlays(this)) {
-            val intent = Intent(this, com.tushar.voidplayer.service.OverlayService::class.java)
-            startService(intent)
+            try {
+                val intent = Intent(this, com.tushar.voidplayer.service.OverlayService::class.java)
+                startService(intent)
+            } catch (e: Throwable) {
+                e.printStackTrace()
+            }
         }
     }
 
     override fun onStart() {
         super.onStart()
-        val intent = Intent(this, com.tushar.voidplayer.service.OverlayService::class.java)
-        stopService(intent)
+        try {
+            val intent = Intent(this, com.tushar.voidplayer.service.OverlayService::class.java)
+            stopService(intent)
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        val intent = Intent(this, com.tushar.voidplayer.service.OverlayService::class.java)
-        stopService(intent)
+        try {
+            val intent = Intent(this, com.tushar.voidplayer.service.OverlayService::class.java)
+            stopService(intent)
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
     }
 }

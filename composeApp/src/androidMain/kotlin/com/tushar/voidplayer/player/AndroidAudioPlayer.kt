@@ -1,4 +1,4 @@
-﻿package com.tushar.voidplayer.player
+package com.tushar.voidplayer.player
 
 import android.app.PendingIntent
 import android.content.Context
@@ -114,6 +114,10 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
                 if (index in playlist.indices) {
                     _currentSong.value = playlist[index]
                 }
+                if (com.tushar.voidplayer.utils.SleepTimerManager.stopAtEndOfSong) {
+                    player.pause()
+                    com.tushar.voidplayer.utils.SleepTimerManager.cancel()
+                }
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -123,6 +127,10 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     updateCurrentSongMetadata()
+                } else if (playbackState == Player.STATE_ENDED) {
+                    if (com.tushar.voidplayer.utils.SleepTimerManager.stopAtEndOfSong) {
+                        com.tushar.voidplayer.utils.SleepTimerManager.cancel()
+                    }
                 }
             }
 
