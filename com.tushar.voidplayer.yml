@@ -15,7 +15,7 @@ Binaries: https://github.com/TUSHAR91316/Void-Player/releases/download/V%v/VoidP
 Builds:
   - versionName: '2.1'
     versionCode: 4
-    commit: 6dff46415921100b7136d5cc201458f9b649e448
+    commit: 438ee8cebd76ccb98ded925541e58a33f185c879
     subdir: composeApp
     gradle:
       - yes
