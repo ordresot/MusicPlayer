@@ -18,24 +18,43 @@ object SleepTimerManager {
     var stopAtEndOfSong: Boolean = false
         private set
 
-    fun startTimer(minutes: Int, onTimerFinished: () -> Unit) {
+    var enableGentleFadeOut: Boolean = true
+
+    private var fadeCallback: ((Float) -> Unit)? = null
+
+    fun startTimer(
+        minutes: Int,
+        onFadeVolume: ((Float) -> Unit)? = null,
+        onTimerFinished: () -> Unit
+    ) {
         cancel()
         stopAtEndOfSong = false
         if (minutes <= 0) return
 
+        this.fadeCallback = onFadeVolume
         val totalSeconds = minutes * 60L
         _remainingSeconds.value = totalSeconds
         _isActive.value = true
 
         timerJob = scope.launch {
             var left = totalSeconds
+            val fadeDuration = 20L // Fade out over last 20 seconds
             while (left > 0) {
                 delay(1000)
                 left--
                 _remainingSeconds.value = left
+
+                if (enableGentleFadeOut && left in 0..fadeDuration) {
+                    val volumeFraction = (left.toFloat() / fadeDuration).coerceIn(0.05f, 1.0f)
+                    fadeCallback?.invoke(volumeFraction)
+                }
             }
+            fadeCallback?.invoke(0f)
             _isActive.value = false
             onTimerFinished()
+            // Reset volume back to full for next session
+            delay(500)
+            fadeCallback?.invoke(1.0f)
         }
     }
 
@@ -52,5 +71,7 @@ object SleepTimerManager {
         stopAtEndOfSong = false
         _isActive.value = false
         _remainingSeconds.value = 0L
+        fadeCallback?.invoke(1.0f)
+        fadeCallback = null
     }
 }

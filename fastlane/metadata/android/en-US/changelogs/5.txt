@@ -1,0 +1,6 @@
+- Added persistent favorites and playlist support across restarts
+- Added real-time synchronized LRC lyrics viewer with auto-scroll
+- Added playback speed controls (0.5x - 2.0x) in audio settings
+- Added gentle volume fade-out for Sleep Timer
+- Added live queue bottom sheet to view and jump between upcoming tracks
+- Performance optimizations and memory safety improvements

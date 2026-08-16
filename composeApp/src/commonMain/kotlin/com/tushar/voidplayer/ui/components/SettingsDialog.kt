@@ -92,10 +92,45 @@ fun AudioSettingsScreen(onDismiss: () -> Unit, player: AudioPlayer, accentColor:
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Playback Speed Selector
+            val currentSpeed by player.playbackSpeed.collectAsState()
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                color = SurfaceElevated,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Text("Playback Speed", color = PrimaryText, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text("Current speed: ${currentSpeed}x", color = Color.Gray, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                            FilterChip(
+                                selected = currentSpeed == speed,
+                                onClick = { player.setPlaybackSpeed(speed) },
+                                label = { Text("${speed}x") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = accentColor,
+                                    selectedLabelColor = Color.Black
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Sleep Timer Section
             val isTimerActive by com.tushar.voidplayer.utils.SleepTimerManager.isActive.collectAsState()
             val remainingSecs by com.tushar.voidplayer.utils.SleepTimerManager.remainingSeconds.collectAsState()
             var selectedMinutes by remember { mutableStateOf(0) }
+            var gentleFade by remember { mutableStateOf(com.tushar.voidplayer.utils.SleepTimerManager.enableGentleFadeOut) }
 
             Surface(
                 modifier = Modifier
@@ -137,9 +172,11 @@ fun AudioSettingsScreen(onDismiss: () -> Unit, player: AudioPlayer, accentColor:
                                 selected = isTimerActive && selectedMinutes == mins && !com.tushar.voidplayer.utils.SleepTimerManager.stopAtEndOfSong,
                                 onClick = {
                                     selectedMinutes = mins
-                                    com.tushar.voidplayer.utils.SleepTimerManager.startTimer(mins) {
-                                        player.pause()
-                                    }
+                                    com.tushar.voidplayer.utils.SleepTimerManager.startTimer(
+                                        minutes = mins,
+                                        onFadeVolume = { player.setVolume(it) },
+                                        onTimerFinished = { player.pause() }
+                                    )
                                 },
                                 label = { Text("${mins}m") },
                                 colors = FilterChipDefaults.filterChipColors(
@@ -157,6 +194,27 @@ fun AudioSettingsScreen(onDismiss: () -> Unit, player: AudioPlayer, accentColor:
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = accentColor,
                                 selectedLabelColor = Color.Black
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Gentle Volume Fade-Out", color = PrimaryText, fontSize = 14.sp)
+                        Switch(
+                            checked = gentleFade,
+                            onCheckedChange = {
+                                gentleFade = it
+                                com.tushar.voidplayer.utils.SleepTimerManager.enableGentleFadeOut = it
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = accentColor,
+                                checkedTrackColor = accentColor.copy(alpha = 0.5f)
                             )
                         )
                     }

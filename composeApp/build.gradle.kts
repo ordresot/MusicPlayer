@@ -64,8 +64,8 @@ android {
         applicationId = "com.tushar.voidplayer"
         minSdk = 26
         targetSdk = 34 // Android 14 (35 optional)
-        versionCode = 4
-        versionName = "2.1"
+        versionCode = 5
+        versionName = "2.2"
     }
 
     dependenciesInfo {
@@ -114,7 +114,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "VoidPlayer"
-            packageVersion = "2.1.0"
+            packageVersion = "2.2.0"
         }
     }
 }

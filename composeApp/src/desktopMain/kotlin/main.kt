@@ -1,4 +1,4 @@
-﻿import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.tushar.voidplayer.App
 import com.tushar.voidplayer.data.SongRepository
@@ -21,17 +21,11 @@ fun main() = application {
 }
 
 class DesktopSongRepository : SongRepository {
-    override suspend fun getSongs(): List<Song> {
-        return emptyList()
-    }
-
-    override suspend fun loadFromFolder(uriString: String): List<Song> {
-        return emptyList()
-    }
-
-    override suspend fun loadArt(uriString: String): ByteArray? {
-        return null
-    }
+    override suspend fun getSongs(): List<Song> = emptyList()
+    override suspend fun loadFromFolder(uriString: String): List<Song> = emptyList()
+    override suspend fun loadArt(uriString: String): ByteArray? = null
+    override suspend fun toggleFavorite(songId: Long, isFav: Boolean) {}
+    override suspend fun loadLyrics(uriString: String): String? = null
 }
 
 class DesktopAudioPlayer : AudioPlayer {
@@ -45,11 +39,12 @@ class DesktopAudioPlayer : AudioPlayer {
     override val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
 
     override val error: StateFlow<String?> = MutableStateFlow(null)
-
     override val isShuffle: StateFlow<Boolean> = MutableStateFlow(false)
     override val repeatMode: StateFlow<AudioPlayer.RepeatMode> = MutableStateFlow(AudioPlayer.RepeatMode.OFF)
     override val equalizerBands: StateFlow<List<AudioPlayer.EqualizerBand>> = MutableStateFlow(emptyList())
     override val isNormalizationEnabled: StateFlow<Boolean> = MutableStateFlow(false)
+    override val playbackSpeed: StateFlow<Float> = MutableStateFlow(1.0f)
+    override val currentQueue: StateFlow<List<Song>> = MutableStateFlow(emptyList())
 
     override fun play(song: Song) {}
     override fun setPlaylist(songs: List<Song>) {}
@@ -67,4 +62,6 @@ class DesktopAudioPlayer : AudioPlayer {
     override fun resetEqualizer() {}
     override fun toggleNormalization() {}
     override fun updateSongArt(songId: Long, art: ByteArray) {}
+    override fun setPlaybackSpeed(speed: Float) {}
+    override fun setVolume(volume: Float) {}
 }

@@ -1,4 +1,4 @@
-﻿package com.tushar.voidplayer.player
+package com.tushar.voidplayer.player
 
 import com.tushar.voidplayer.model.Song
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +12,8 @@ interface AudioPlayer {
     val repeatMode: StateFlow<RepeatMode>
     val equalizerBands: StateFlow<List<EqualizerBand>>
     val isNormalizationEnabled: StateFlow<Boolean>
+    val playbackSpeed: StateFlow<Float>
+    val currentQueue: StateFlow<List<Song>>
 
     fun play(song: Song)
     fun setPlaylist(songs: List<Song>)
@@ -29,6 +31,8 @@ interface AudioPlayer {
     fun resetEqualizer()
     fun toggleNormalization()
     fun updateSongArt(songId: Long, art: ByteArray)
+    fun setPlaybackSpeed(speed: Float)
+    fun setVolume(volume: Float)
 
     enum class RepeatMode {
         OFF, ONE, ALL

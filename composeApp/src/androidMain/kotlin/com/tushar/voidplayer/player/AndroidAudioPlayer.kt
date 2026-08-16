@@ -77,6 +77,12 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
     private val _isNormalizationEnabled = MutableStateFlow(false)
     override val isNormalizationEnabled: StateFlow<Boolean> = _isNormalizationEnabled.asStateFlow()
 
+    private val _playbackSpeed = MutableStateFlow(1.0f)
+    override val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
+    private val _currentQueue = MutableStateFlow<List<Song>>(emptyList())
+    override val currentQueue: StateFlow<List<Song>> = _currentQueue.asStateFlow()
+
     private var playlist: List<Song> = emptyList()
     private var progressJob: Job? = null
 
@@ -284,6 +290,7 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
 
     override fun setPlaylist(songs: List<Song>) {
         this.playlist = songs
+        _currentQueue.value = songs
         val mediaItems = songs.map { song ->
             MediaItem.Builder()
                 .setMediaId(song.id.toString())
@@ -317,6 +324,24 @@ class AndroidAudioPlayer(private val context: Context) : AudioPlayer {
             player.play()
         }
         startPlaybackService()
+    }
+
+    override fun setPlaybackSpeed(speed: Float) {
+        val safeSpeed = speed.coerceIn(0.25f, 3.0f)
+        _playbackSpeed.value = safeSpeed
+        try {
+            player.setPlaybackSpeed(safeSpeed)
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun setVolume(volume: Float) {
+        try {
+            player.volume = volume.coerceIn(0f, 1f)
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
     }
 
     override fun pause() { player.pause() }

@@ -135,10 +135,19 @@ fun MainContent(
         }
     }
 
+    val scope = rememberCoroutineScope()
+
     // When a song's favorite status is toggled, update it in the songs list
-    // so the UI reflects the change immediately in both tabs.
+    // and persist to repository storage immediately.
     fun onToggleFavorite(updatedSong: Song) {
         songs = songs.map { if (it.id == updatedSong.id) updatedSong else it }
+        scope.launch {
+            try {
+                repository.toggleFavorite(updatedSong.id, updatedSong.isFavorite)
+            } catch (e: Throwable) {
+                e.printStackTrace()
+            }
+        }
     }
 
     var selectedTab by remember { mutableStateOf(0) }       // 0 = All, 1 = Favorites

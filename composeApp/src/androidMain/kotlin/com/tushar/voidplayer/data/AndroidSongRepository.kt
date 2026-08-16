@@ -12,12 +12,29 @@ import kotlinx.coroutines.withContext
 
 class AndroidSongRepository(private val context: Context) : SongRepository {
 
+    private val prefs = context.getSharedPreferences("VoidPlayer_Favorites", Context.MODE_PRIVATE)
+
+    private fun getFavoriteIds(): Set<String> {
+        return prefs.getStringSet("favorite_ids", emptySet()) ?: emptySet()
+    }
+
+    override suspend fun toggleFavorite(songId: Long, isFav: Boolean) = withContext(Dispatchers.IO) {
+        val current = getFavoriteIds().toMutableSet()
+        if (isFav) {
+            current.add(songId.toString())
+        } else {
+            current.remove(songId.toString())
+        }
+        prefs.edit().putStringSet("favorite_ids", current).apply()
+    }
+
     // ------------------------------------------------------------------
     // MediaStore path (device library scan)
     // ------------------------------------------------------------------
 
     override suspend fun getSongs(): List<Song> = withContext(Dispatchers.IO) {
         val songs = mutableListOf<Song>()
+        val favIds = getFavoriteIds()
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
@@ -52,7 +69,18 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
                     )
 
                     // Art is loaded lazily via ImageCache to keep initial load fast
-                    songs.add(Song(id, title, artist, album, duration, contentUri.toString(), null))
+                    songs.add(
+                        Song(
+                            id = id,
+                            title = title,
+                            artist = artist,
+                            album = album,
+                            duration = duration,
+                            uri = contentUri.toString(),
+                            coverArt = null,
+                            isFavorite = favIds.contains(id.toString())
+                        )
+                    )
                 }
             }
         } catch (e: Exception) {
@@ -67,6 +95,7 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
 
     override suspend fun loadFromFolder(uriString: String): List<Song> = withContext(Dispatchers.IO) {
         val audioFiles = mutableListOf<androidx.documentfile.provider.DocumentFile>()
+        val favIds = getFavoriteIds()
         try {
             val treeUri = android.net.Uri.parse(uriString)
             val docFile = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri)
@@ -85,7 +114,7 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
             audioFiles.chunked(15).flatMap { batch ->
                 batch.map { file ->
                     async(Dispatchers.IO) {
-                        extractSongFromFile(file)
+                        extractSongFromFile(file, favIds)
                     }
                 }.map { it.await() }
             }
@@ -93,7 +122,8 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
     }
 
     private fun extractSongFromFile(
-        file: androidx.documentfile.provider.DocumentFile
+        file: androidx.documentfile.provider.DocumentFile,
+        favIds: Set<String>
     ): Song {
         val fileName = file.name ?: "Unknown"
         var title  = fileName.substringBeforeLast('.').takeIf { it.isNotBlank() } ?: "Unknown"
@@ -119,7 +149,6 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
         }
 
         // Use a stable positive ID derived from the URI string.
-        // uri.hashCode() can be negative; mask the sign bit to guarantee positive longs.
         val id = file.uri.toString().hashCode().toLong() and 0x7FFF_FFFF_FFFF_FFFFL
 
         return Song(
@@ -129,7 +158,8 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
             album    = album,
             duration = duration,
             uri      = file.uri.toString(),
-            coverArt = null
+            coverArt = null,
+            isFavorite = favIds.contains(id.toString())
         )
     }
 
@@ -139,13 +169,32 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
             retriever.setDataSource(context, android.net.Uri.parse(uriString))
             retriever.embeddedPicture
         } catch (e: Throwable) {
-            // Catches Exception, Error (e.g. OutOfMemoryError on large embedded art),
-            // and any other throwable so that art loading never crashes the app.
             android.util.Log.e("VoidPlayer", "Failed to load art for $uriString", e)
             null
         } finally {
             try { retriever.release() } catch (_: Throwable) {}
         }
+    }
+
+    override suspend fun loadLyrics(uriString: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val uri = android.net.Uri.parse(uriString)
+            // Attempt 1: Check if this is a file with a sibling .lrc file
+            val docFile = androidx.documentfile.provider.DocumentFile.fromSingleUri(context, uri)
+            val parent = docFile?.parentFile
+            if (parent != null) {
+                val baseName = docFile.name?.substringBeforeLast('.') ?: ""
+                val lrcFile = parent.findFile("$baseName.lrc") ?: parent.findFile("$baseName.LRC")
+                if (lrcFile != null && lrcFile.exists()) {
+                    context.contentResolver.openInputStream(lrcFile.uri)?.use { stream ->
+                        return@withContext stream.bufferedReader().use { it.readText() }
+                    }
+                }
+            }
+        } catch (e: Throwable) {
+            android.util.Log.e("VoidPlayer", "Error searching for LRC lyrics", e)
+        }
+        null
     }
 
     // ------------------------------------------------------------------
