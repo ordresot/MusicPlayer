@@ -24,6 +24,8 @@ Thumbs.db
 *.logcat
 *_log.txt
 *.apk
+*.msi
+*.exe
 desktop_build.log
 desktop_run_log.txt
 git_log.txt
