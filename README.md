@@ -3,45 +3,44 @@
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Compose](https://img.shields.io/badge/Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
-![Version](https://img.shields.io/badge/version-2.1-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-2.2-blue?style=for-the-badge)
 
-A modern, crash-hardened music player built with **Kotlin Multiplatform** and **Compose Multiplatform** targeting Android and Desktop.
+A modern, high-performance, privacy-focused music player built with **Kotlin Multiplatform** and **Compose Multiplatform** targeting Android and Windows Desktop. 100% Free & Open Source (FOSS) with zero ads, tracking, or telemetry.
+
+---
 
 ## ✨ Features
 
 - 🎨 **Dynamic UI Theming**: Automatically extracts dominant colors from album covers to create immersive backgrounds and UI accents via asynchronous coroutine processing.
+- ✨ **AI Smart Categorization**: Automatically analyzes your music collection metadata to group songs into intelligent mood and vibe collections (Night Vibes, High Energy, Deep Focus, Romance, Quick Hits, and Artist Spotlights).
+- 📁 **Custom Playlists & Favorites**: Create and manage custom playlists and favorite tracks, fully persisted locally across app restarts.
+- 📜 **Interactive Synced LRC Lyrics**: Automatic local `.lrc` file detection with real-time timestamp synchronization, active line accent highlighting, smooth auto-scrolling, and tap-to-seek.
 - 📱 **Interactive Player Island**: A polished mini-player overlay that mimics a "Dynamic Island", smoothly expanding into a full-screen experience with physics-based spring animations.
-- 🎵 **System Overlay Service**: Control your music from anywhere on Android via a system-wide floating Compose widget (requires overlay permission).
-- 🚀 **Fast Local Library**: Scans local music files with lazy metadata extraction and a bounded LRU image cache for smooth scrolling.
-- 🧠 **Adaptive Memory Architecture**: Queries the device's hardware memory class to dynamically scale image caches and album art resolutions. Smooth on 2GB budget phones, gorgeous on 12GB flagships.
-- 🎧 **Equalizer & Normalization**: Full hardware equalizer bands and real-time multiband dynamic normalization via Android's `DynamicsProcessing` DSP (API 28+).
-- 🔊 **Audio Focus & Noisy Handling**: Auto-pauses when headphones are disconnected or another app takes audio focus.
-- 💽 **Cross-Platform Architecture**: Clean `commonMain` UI architecture that runs on both Android and Desktop (JVM) targets.
+- ⚡ **Playback Speed Controller**: Adjust tempo from `0.5x` to `2.0x` with native ExoPlayer pitch correction.
+- 🌙 **Gentle Sleep Timer**: Automatically pause playback with optional 20-second volume fade-out so you drift off peacefully.
+- 📋 **Live Queue Viewer**: View and jump between upcoming tracks in your playlist queue directly from the full-screen player.
+- 🎵 **System Overlay Service**: Control your music from anywhere on Android via a floating system-wide Compose widget.
+- 🧠 **Adaptive Memory Architecture**: Hardware-aware LRU image caches ensure buttery-smooth 60fps scrolling on both 2GB budget phones and 12GB flagships.
+- 🎧 **Hardware Equalizer & Normalization**: Full multi-band equalizer and dynamic real-time normalization via Android's `DynamicsProcessing` DSP chip.
+- 🔊 **Auto-Pause & Audio Focus**: Seamlessly pauses playback when headphones/Bluetooth disconnect or incoming calls take focus.
+- 🖥️ **Desktop Native Support**: Fully functional on Windows Desktop with portable standalone `.exe` and `.msi` installers.
 
-## 📥 Download
-
-- [**Void Player v2.1 (APK)**](./VoidPlayer-2.1-release.apk)
-
-> ⚠️ Must uninstall v2.0 before installing v2.1 (signing key changed).
+---
 
 ## 🛠 Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Language | Kotlin |
-| UI Framework | Jetpack Compose Multiplatform |
-| Audio Engine | Media3 ExoPlayer (Android) |
-| Architecture | MVVM with `StateFlow` + `collectAsState` |
-| Build System | Gradle (KMP) |
-| Min SDK | Android 8.0 (API 26) |
-| Target SDK | Android 14 (API 34) |
+|---|---|
+| **Language** | Kotlin (100% pure KMP) |
+| **UI Framework** | Jetpack Compose Multiplatform (Material 3) |
+| **Audio Engine** | Media3 ExoPlayer |
+| **State Management** | MVVM with `StateFlow` + `collectAsState` |
+| **Build System** | Gradle (KMP) with JDK 21 |
+| **Min / Target SDK** | Android 8.0 (API 26) / Android 14 (API 34) |
+
+---
 
 ## 🚀 Getting Started
-
-### Prerequisites
-- Android device running Android 8.0 (API 26) or higher
-- JDK 21+
-- Android Studio Ladybug or newer
 
 ### Build & Run
 
@@ -55,34 +54,40 @@ A modern, crash-hardened music player built with **Kotlin Multiplatform** and **
 ./gradlew :composeApp:assembleRelease
 ```
 
-**Desktop:**
+**Desktop (Run locally):**
 ```bash
 ./gradlew :composeApp:run
 ```
+
+**Desktop (Package Standalone .exe / .msi):**
+```bash
+./gradlew :composeApp:createDistributable
+./gradlew :composeApp:packageMsi
+```
+
+---
 
 ## 📂 Project Structure
 
 ```
 composeApp/
-├── commonMain/          # Shared UI, models, interfaces
-│   ├── App.kt           # Root composable
-│   ├── model/Song.kt    # Data model
-│   ├── player/AudioPlayer.kt     # Platform-agnostic interface
-│   ├── data/SongRepository.kt   # Platform-agnostic interface
-│   └── ui/components/           # All UI components
-├── androidMain/         # Android implementations
+├── commonMain/          # Shared UI, models, utilities & interfaces
+│   ├── App.kt           # Root composable & Navigation Tabs
+│   ├── model/           # Song, Playlist, AiCategory
+│   ├── player/          # Platform-agnostic AudioPlayer interface
+│   ├── data/            # SongRepository interface
+│   ├── utils/           # AiCategorizer, LrcParser, SleepTimer, ImageCache
+│   └── ui/components/   # PlayerIsland, AiCategoriesScreen, PlaylistsScreen, etc.
+├── androidMain/         # Android Media3 & SAF implementations
 │   ├── MainActivity.kt
-│   ├── VoidPlayerApp.kt          # Application class (singleton)
-│   ├── player/AndroidAudioPlayer.kt  # ExoPlayer wrapper
-│   ├── player/PlaybackService.kt     # MediaSessionService
-│   ├── service/OverlayService.kt     # System overlay
+│   ├── VoidPlayerApp.kt
+│   ├── player/AndroidAudioPlayer.kt
+│   ├── service/OverlayService.kt
 │   └── data/AndroidSongRepository.kt
-└── desktopMain/         # Desktop stub implementations
+└── desktopMain/         # Desktop JVM implementations & entrypoint
 ```
 
-## 🐛 Crash History & Developer Notes
-
-See [release.md](./release.md) for the full changelog and [chat.md](./chat.md) for the complete crash audit with root causes, fixes, and prevention rules for future development.
+---
 
 ## 📄 License
-This project is open-source under the MIT License. See [LICENSE](./LICENSE) for details.
+This project is open-source under the **MIT License**. See [LICENSE](./LICENSE) for details.
