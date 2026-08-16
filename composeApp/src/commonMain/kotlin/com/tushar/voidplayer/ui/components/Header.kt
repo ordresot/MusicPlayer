@@ -1,11 +1,13 @@
-﻿package com.tushar.voidplayer.ui.components
+package com.tushar.voidplayer.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,7 +34,7 @@ fun Header(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 20.dp)
+            .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -43,7 +45,7 @@ fun Header(
                 TextField(
                     value = searchQuery,
                     onValueChange = onSearchCb,
-                    placeholder = { Text("Search...", color = SecondaryText) },
+                    placeholder = { Text("Search title or artist...", color = SecondaryText) },
                     modifier = Modifier
                         .weight(1f)
                         .height(56.dp)
@@ -62,36 +64,36 @@ fun Header(
                             isSearchActive = false
                             onSearchCb("")
                         }) {
-                            Icon(Icons.Filled.Close, null, tint = SecondaryText)
+                            Icon(Icons.Filled.Close, contentDescription = "Close search", tint = SecondaryText)
                         }
                     }
                 )
             } else {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Library",
-                        style = MaterialTheme.typography.headlineLarge.copy(
+                        text = "Void Player",
+                        style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = (-0.5).sp
                         ),
                         color = PrimaryText
                     )
                     Text(
-                        text = "My Music",
-                        style = MaterialTheme.typography.titleSmall,
+                        text = "Hi-Fi Audio Experience",
+                        style = MaterialTheme.typography.bodySmall,
                         color = SecondaryText
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(onClick = { isSearchActive = true }) {
                         Icon(Icons.Filled.Search, contentDescription = "Search", tint = PrimaryText)
                     }
-                    IconButton(onClick = onOpenSettings) {
-                        Text("âš™", fontSize = 24.sp, color = PrimaryText)
-                    }
                     IconButton(onClick = onPickFolder) {
-                        Text("ðŸ“", fontSize = 24.sp, color = PrimaryText)
+                        Icon(Icons.Filled.FolderOpen, contentDescription = "Select Music Folder", tint = PrimaryText)
+                    }
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Audio Settings", tint = PrimaryText)
                     }
                 }
             }

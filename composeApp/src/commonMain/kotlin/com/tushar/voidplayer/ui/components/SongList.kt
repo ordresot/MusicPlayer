@@ -36,6 +36,7 @@ fun SongItem(
     isPlaying: Boolean,
     accentColor: Color,
     onToggleFavorite: ((Song) -> Unit)? = null,
+    onAddToPlaylist: ((Song) -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val bitmap = com.tushar.voidplayer.utils.rememberSongImage(song, repository)
@@ -129,7 +130,10 @@ fun SongItem(
                 )
                 DropdownMenuItem(
                     text = { Text("Add to Playlist") },
-                    onClick = { expanded = false }
+                    onClick = {
+                        expanded = false
+                        onAddToPlaylist?.invoke(song)
+                    }
                 )
             }
         }

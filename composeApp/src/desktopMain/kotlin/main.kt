@@ -2,6 +2,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.tushar.voidplayer.App
 import com.tushar.voidplayer.data.SongRepository
+import com.tushar.voidplayer.model.Playlist
 import com.tushar.voidplayer.model.Song
 import com.tushar.voidplayer.player.AudioPlayer
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,9 @@ class DesktopSongRepository : SongRepository {
     override suspend fun loadArt(uriString: String): ByteArray? = null
     override suspend fun toggleFavorite(songId: Long, isFav: Boolean) {}
     override suspend fun loadLyrics(uriString: String): String? = null
+    override suspend fun getPlaylists(): List<Playlist> = emptyList()
+    override suspend fun savePlaylist(playlist: Playlist) {}
+    override suspend fun deletePlaylist(playlistId: String) {}
 }
 
 class DesktopAudioPlayer : AudioPlayer {

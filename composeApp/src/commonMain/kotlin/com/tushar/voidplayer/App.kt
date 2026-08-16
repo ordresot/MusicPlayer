@@ -5,22 +5,32 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tushar.voidplayer.data.SongRepository
+import com.tushar.voidplayer.model.Playlist
 import com.tushar.voidplayer.model.Song
 import com.tushar.voidplayer.player.AudioPlayer
 import com.tushar.voidplayer.ui.theme.*
 import com.tushar.voidplayer.ui.components.*
+import com.tushar.voidplayer.utils.AiCategorizer
 import kotlinx.coroutines.launch
 
 // ------------------------------------------------------------------
-// Sort order — enum eliminates magic strings and enables exhaustive when
+// Sort order
 // ------------------------------------------------------------------
 
 enum class SortOrder(val label: String) {
@@ -54,15 +64,13 @@ fun App(
         val cachedColor = com.tushar.voidplayer.utils.ColorCache.get(song.id.toString())
         if (cachedColor != null) {
             accentColor = cachedColor
-            currentArt = null   // No need to decode art again
+            currentArt = null
         } else {
             currentArt = repository.loadArt(song.uri)
         }
     }
 
-    // Step 2: when art bytes change, extract the dominant color.
-    // getDominantColor is a composable; calling it here (top of composition)
-    // is safe and efficient — it only re-runs when currentArt changes.
+    // Step 2: when art bytes change, extract dominant color
     val extractedColor = currentArt?.let { getDominantColor(it) }
     LaunchedEffect(extractedColor) {
         if (extractedColor != null && extractedColor != Color.Unspecified) {
@@ -82,7 +90,6 @@ fun App(
                         colors = listOf(accentColor.copy(alpha = 0.15f), SurfaceBackground)
                     )
                 )
-                // Ambient glow in top-right corner
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(accentColor.copy(alpha = 0.2f), Color.Transparent),
@@ -107,6 +114,7 @@ fun MainContent(
     accentColor: Color
 ) {
     var songs by remember { mutableStateOf(emptyList<Song>()) }
+    var playlists by remember { mutableStateOf(emptyList<Playlist>()) }
     var searchQuery by remember { mutableStateOf("") }
     val currentSong by player.currentSong.collectAsState()
     val error by player.error.collectAsState()
@@ -114,7 +122,12 @@ fun MainContent(
     var showSettings by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Load songs whenever the picked folder changes
+    val scope = rememberCoroutineScope()
+
+    // 0 = Tracks, 1 = AI Categories, 2 = Playlists
+    var mainNavTab by remember { mutableStateOf(0) }
+
+    // Load songs & playlists whenever the picked folder changes
     LaunchedEffect(pickedFolderUri.value) {
         isLoading = true
         try {
@@ -124,7 +137,8 @@ fun MainContent(
                 repository.getSongs()
             }
             songs = loaded
-            // Set the playlist on first load so ExoPlayer knows the full queue
+            playlists = repository.getPlaylists()
+
             if (player.currentSong.value == null && loaded.isNotEmpty()) {
                 player.setPlaylist(loaded)
             }
@@ -135,10 +149,7 @@ fun MainContent(
         }
     }
 
-    val scope = rememberCoroutineScope()
-
-    // When a song's favorite status is toggled, update it in the songs list
-    // and persist to repository storage immediately.
+    // Persist favorite changes immediately
     fun onToggleFavorite(updatedSong: Song) {
         songs = songs.map { if (it.id == updatedSong.id) updatedSong else it }
         scope.launch {
@@ -150,14 +161,35 @@ fun MainContent(
         }
     }
 
-    var selectedTab by remember { mutableStateOf(0) }       // 0 = All, 1 = Favorites
+    // Playlist actions
+    fun onCreatePlaylist(name: String) {
+        val newPl = Playlist(id = System.currentTimeMillis().toString(), name = name, songIds = emptyList())
+        playlists = playlists + newPl
+        scope.launch { repository.savePlaylist(newPl) }
+    }
+
+    fun onDeletePlaylist(id: String) {
+        playlists = playlists.filter { it.id != id }
+        scope.launch { repository.deletePlaylist(id) }
+    }
+
+    var songToAddToPlaylist by remember { mutableStateOf<Song?>(null) }
+
+    fun onAddSongToTargetPlaylist(playlist: Playlist, song: Song) {
+        if (!playlist.songIds.contains(song.id)) {
+            val updated = playlist.copy(songIds = playlist.songIds + song.id)
+            playlists = playlists.map { if (it.id == playlist.id) updated else it }
+            scope.launch { repository.savePlaylist(updated) }
+        }
+        songToAddToPlaylist = null
+    }
+
+    var selectedTrackFilter by remember { mutableStateOf(0) } // 0 = All, 1 = Favorites
     var sortOrder by remember { mutableStateOf(SortOrder.TITLE) }
 
-    // Derive the displayed list. `remember` with keys avoids recomputing on
-    // every composition frame; only recalculates when inputs change.
-    val filteredSongs by remember(songs, searchQuery, selectedTab, sortOrder) {
+    val filteredSongs by remember(songs, searchQuery, selectedTrackFilter, sortOrder) {
         derivedStateOf {
-            var list = if (selectedTab == 1) songs.filter { it.isFavorite } else songs
+            var list = if (selectedTrackFilter == 1) songs.filter { it.isFavorite } else songs
             if (searchQuery.isNotBlank()) {
                 list = list.filter {
                     it.title.contains(searchQuery, ignoreCase = true) ||
@@ -172,6 +204,10 @@ fun MainContent(
         }
     }
 
+    val aiCategories by remember(songs) {
+        derivedStateOf { AiCategorizer.categorize(songs) }
+    }
+
     val favoriteCount by remember(songs) { derivedStateOf { songs.count { it.isFavorite } } }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -183,53 +219,99 @@ fun MainContent(
                 onSearchCb = { searchQuery = it }
             )
 
-            // --- Category tabs & sort bar ---
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // --- Top Navigation Tabs: Tracks | AI Categories | Playlists ---
+            TabRow(
+                selectedTabIndex = mainNavTab,
+                containerColor = Color.Transparent,
+                contentColor = accentColor,
+                divider = {}
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        label = { Text("All Songs (${songs.size})") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = accentColor,
-                            selectedLabelColor = Color.Black
-                        )
-                    )
-                    FilterChip(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        label = { Text("Favorites ($favoriteCount)") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = accentColor,
-                            selectedLabelColor = Color.Black
-                        )
-                    )
-                }
+                Tab(
+                    selected = mainNavTab == 0,
+                    onClick = { mainNavTab = 0 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.MusicNote, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Tracks (${songs.size})", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                )
+                Tab(
+                    selected = mainNavTab == 1,
+                    onClick = { mainNavTab = 1 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("AI Categories", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                )
+                Tab(
+                    selected = mainNavTab == 2,
+                    onClick = { mainNavTab = 2 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.PlaylistPlay, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Playlists (${playlists.size})", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                )
+            }
 
-                var sortExpanded by remember { mutableStateOf(false) }
-                Box {
-                    TextButton(onClick = { sortExpanded = true }) {
-                        Text(
-                            "Sort: ${sortOrder.label}",
-                            color = accentColor,
-                            style = MaterialTheme.typography.labelMedium
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // --- Sub-filters for Tracks tab ---
+            if (mainNavTab == 0) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = selectedTrackFilter == 0,
+                            onClick = { selectedTrackFilter = 0 },
+                            label = { Text("All (${songs.size})") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = accentColor,
+                                selectedLabelColor = Color.Black
+                            )
+                        )
+                        FilterChip(
+                            selected = selectedTrackFilter == 1,
+                            onClick = { selectedTrackFilter = 1 },
+                            label = { Text("♥ Favs ($favoriteCount)") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = accentColor,
+                                selectedLabelColor = Color.Black
+                            )
                         )
                     }
-                    DropdownMenu(
-                        expanded = sortExpanded,
-                        onDismissRequest = { sortExpanded = false }
-                    ) {
-                        SortOrder.entries.forEach { order ->
-                            DropdownMenuItem(
-                                text = { Text(order.label) },
-                                onClick = { sortOrder = order; sortExpanded = false }
+
+                    var sortExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        TextButton(onClick = { sortExpanded = true }) {
+                            Text(
+                                "Sort: ${sortOrder.label}",
+                                color = accentColor,
+                                style = MaterialTheme.typography.labelMedium
                             )
+                        }
+                        DropdownMenu(
+                            expanded = sortExpanded,
+                            onDismissRequest = { sortExpanded = false }
+                        ) {
+                            SortOrder.entries.forEach { order ->
+                                DropdownMenuItem(
+                                    text = { Text(order.label) },
+                                    onClick = { sortOrder = order; sortExpanded = false }
+                                )
+                            }
                         }
                     }
                 }
@@ -253,10 +335,31 @@ fun MainContent(
                         }
                     }
                     songs.isEmpty() -> EmptyState(onPickFolder, statusMessage)
+                    mainNavTab == 1 -> {
+                        AiCategoriesScreen(
+                            categories = aiCategories,
+                            player = player,
+                            repository = repository,
+                            accentColor = accentColor,
+                            onToggleFavorite = ::onToggleFavorite
+                        )
+                    }
+                    mainNavTab == 2 -> {
+                        PlaylistsScreen(
+                            playlists = playlists,
+                            allSongs = songs,
+                            player = player,
+                            repository = repository,
+                            accentColor = accentColor,
+                            onCreatePlaylist = ::onCreatePlaylist,
+                            onDeletePlaylist = ::onDeletePlaylist,
+                            onToggleFavorite = ::onToggleFavorite
+                        )
+                    }
                     filteredSongs.isEmpty() -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
-                                text = if (selectedTab == 1) "No favorite songs yet\nTap ♥ on any song to add it"
+                                text = if (selectedTrackFilter == 1) "No favorite songs yet\nTap ♥ on any song to add it"
                                        else "No songs match \"$searchQuery\"",
                                 color = SecondaryText,
                                 style = MaterialTheme.typography.bodyLarge,
@@ -267,7 +370,7 @@ fun MainContent(
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 160.dp, top = 8.dp)
+                            contentPadding = PaddingValues(bottom = 160.dp, top = 4.dp)
                         ) {
                             items(filteredSongs, key = { it.id }) { song ->
                                 val isPlaying = song.id == currentSong?.id
@@ -277,6 +380,7 @@ fun MainContent(
                                     isPlaying = isPlaying,
                                     accentColor = accentColor,
                                     onToggleFavorite = ::onToggleFavorite,
+                                    onAddToPlaylist = { songToAddToPlaylist = it },
                                     onClick = { player.play(song) }
                                 )
                             }
@@ -305,6 +409,44 @@ fun MainContent(
                 onDismiss = { showSettings = false },
                 player = player,
                 accentColor = accentColor
+            )
+        }
+
+        // --- Add to Playlist Dialog ---
+        songToAddToPlaylist?.let { song ->
+            AlertDialog(
+                onDismissRequest = { songToAddToPlaylist = null },
+                title = { Text("Add to Playlist", color = PrimaryText, fontWeight = FontWeight.Bold) },
+                text = {
+                    if (playlists.isEmpty()) {
+                        Text("No playlists created yet. Create a playlist from the Playlists tab.", color = SecondaryText)
+                    } else {
+                        LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp)) {
+                            items(playlists, key = { it.id }) { pl ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { onAddSongToTargetPlaylist(pl, song) },
+                                    color = SurfaceElevated
+                                ) {
+                                    Text(
+                                        text = "${pl.name} (${pl.songIds.size} songs)",
+                                        color = PrimaryText,
+                                        modifier = Modifier.padding(12.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { songToAddToPlaylist = null }) {
+                        Text("Close", color = accentColor)
+                    }
+                },
+                containerColor = SurfaceElevated
             )
         }
     }

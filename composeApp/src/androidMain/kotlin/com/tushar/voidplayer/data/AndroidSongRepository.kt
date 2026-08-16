@@ -4,6 +4,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.provider.MediaStore
+import com.tushar.voidplayer.model.Playlist
 import com.tushar.voidplayer.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -13,6 +14,7 @@ import kotlinx.coroutines.withContext
 class AndroidSongRepository(private val context: Context) : SongRepository {
 
     private val prefs = context.getSharedPreferences("VoidPlayer_Favorites", Context.MODE_PRIVATE)
+    private val playlistPrefs = context.getSharedPreferences("VoidPlayer_Playlists", Context.MODE_PRIVATE)
 
     private fun getFavoriteIds(): Set<String> {
         return prefs.getStringSet("favorite_ids", emptySet()) ?: emptySet()
@@ -26,6 +28,41 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
             current.remove(songId.toString())
         }
         prefs.edit().putStringSet("favorite_ids", current).apply()
+    }
+
+    // ------------------------------------------------------------------
+    // Playlist persistence
+    // ------------------------------------------------------------------
+
+    override suspend fun getPlaylists(): List<Playlist> = withContext(Dispatchers.IO) {
+        val allKeys = playlistPrefs.all
+        val list = mutableListOf<Playlist>()
+        for ((key, value) in allKeys) {
+            if (key.startsWith("pl_") && value is String) {
+                // format: "Name:::id1,id2,id3"
+                val parts = value.split(":::")
+                val name = parts.getOrNull(0) ?: "Playlist"
+                val idsStr = parts.getOrNull(1) ?: ""
+                val songIds = if (idsStr.isNotBlank()) {
+                    idsStr.split(",").mapNotNull { it.trim().toLongOrNull() }
+                } else {
+                    emptyList()
+                }
+                list.add(Playlist(id = key.removePrefix("pl_"), name = name, songIds = songIds))
+            }
+        }
+        list
+    }
+
+    override suspend fun savePlaylist(playlist: Playlist) = withContext(Dispatchers.IO) {
+        val key = "pl_${playlist.id}"
+        val value = "${playlist.name}:::${playlist.songIds.joinToString(",")}"
+        playlistPrefs.edit().putString(key, value).apply()
+    }
+
+    override suspend fun deletePlaylist(playlistId: String) = withContext(Dispatchers.IO) {
+        val key = "pl_$playlistId"
+        playlistPrefs.edit().remove(key).apply()
     }
 
     // ------------------------------------------------------------------
@@ -148,7 +185,6 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
             try { retriever.release() } catch (_: Throwable) {}
         }
 
-        // Use a stable positive ID derived from the URI string.
         val id = file.uri.toString().hashCode().toLong() and 0x7FFF_FFFF_FFFF_FFFFL
 
         return Song(
@@ -179,7 +215,6 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
     override suspend fun loadLyrics(uriString: String): String? = withContext(Dispatchers.IO) {
         try {
             val uri = android.net.Uri.parse(uriString)
-            // Attempt 1: Check if this is a file with a sibling .lrc file
             val docFile = androidx.documentfile.provider.DocumentFile.fromSingleUri(context, uri)
             val parent = docFile?.parentFile
             if (parent != null) {
@@ -196,11 +231,6 @@ class AndroidSongRepository(private val context: Context) : SongRepository {
         }
         null
     }
-
-    // ------------------------------------------------------------------
-    // Iterative (non-recursive) folder traversal to avoid stack overflow
-    // on deeply nested directory structures.
-    // ------------------------------------------------------------------
 
     private fun collectAudioFilesIterative(
         root: androidx.documentfile.provider.DocumentFile,
