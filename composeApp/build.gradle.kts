@@ -126,7 +126,7 @@ compose.desktop {
                 shortcut = true
                 menu = true
                 dirChooser = true
-                perUserInstall = false
+                perUserInstall = true
             }
         }
     }
