@@ -126,7 +126,45 @@ fun MainContent(
 
     // 0 = Library, 1 = AI Hub, 2 = Playlists, 3 = Now Playing
     var selectedNavTab by remember { mutableStateOf(0) }
-    var isNowPlayingFullScreen by remember { mutableStateOf(false) }
+    var navBackStack by remember { mutableStateOf(listOf<Int>()) }
+
+    fun navigateTo(tab: Int) {
+        if (selectedNavTab != tab) {
+            navBackStack = navBackStack + selectedNavTab
+            selectedNavTab = tab
+        }
+    }
+
+    var songToAddToPlaylist by remember { mutableStateOf<Song?>(null) }
+
+    fun handleBack() {
+        if (showSettings) {
+            showSettings = false
+            return
+        }
+        if (songToAddToPlaylist != null) {
+            songToAddToPlaylist = null
+            return
+        }
+        if (searchQuery.isNotBlank()) {
+            searchQuery = ""
+            return
+        }
+        if (navBackStack.isNotEmpty()) {
+            val previousTab = navBackStack.last()
+            navBackStack = navBackStack.dropLast(1)
+            selectedNavTab = previousTab
+            return
+        }
+        if (selectedNavTab != 0) {
+            selectedNavTab = 0
+        }
+    }
+
+    val canGoBack = showSettings || songToAddToPlaylist != null || searchQuery.isNotBlank() || selectedNavTab != 0
+    com.tushar.voidplayer.ui.PlatformBackHandler(enabled = canGoBack) {
+        handleBack()
+    }
 
     // AI DJ Flow Toggle
     var isAiDjFlowEnabled by remember { mutableStateOf(false) }
@@ -177,8 +215,6 @@ fun MainContent(
         scope.launch { repository.deletePlaylist(id) }
     }
 
-    var songToAddToPlaylist by remember { mutableStateOf<Song?>(null) }
-
     fun onAddSongToTargetPlaylist(playlist: Playlist, song: Song) {
         if (!playlist.songIds.contains(song.id)) {
             val updated = playlist.copy(songIds = playlist.songIds + song.id)
@@ -217,7 +253,7 @@ fun MainContent(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            if (selectedNavTab != 3 && !isNowPlayingFullScreen) {
+            if (selectedNavTab != 3) {
                 Header(
                     onPickFolder = onPickFolder,
                     onOpenSettings = { showSettings = true },
@@ -227,7 +263,7 @@ fun MainContent(
             }
 
             // --- Sub-filters for Library tab ---
-            if (selectedNavTab == 0 && !isNowPlayingFullScreen) {
+            if (selectedNavTab == 0) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -328,17 +364,14 @@ fun MainContent(
                     }
 
                     // Tab 3: Dedicated Now Playing Screen
-                    selectedNavTab == 3 || isNowPlayingFullScreen -> {
+                    selectedNavTab == 3 -> {
                         if (currentSong != null) {
                             NowPlayingScreen(
                                 song = currentSong!!,
                                 player = player,
                                 repository = repository,
                                 accentColor = accentColor,
-                                onMinimize = {
-                                    isNowPlayingFullScreen = false
-                                    if (selectedNavTab == 3) selectedNavTab = 0
-                                },
+                                onMinimize = { handleBack() },
                                 onOpenSettings = { showSettings = true },
                                 onToggleFavorite = ::onToggleFavorite
                             )
@@ -385,35 +418,28 @@ fun MainContent(
         }
 
         // --- Bottom Area: Mini-Player Pill + Bottom Navigation Bar ---
-        if (!isNowPlayingFullScreen && selectedNavTab != 3) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-            ) {
-                if (currentSong != null) {
-                    MiniPlayerPill(
-                        song = currentSong!!,
-                        player = player,
-                        repository = repository,
-                        accentColor = accentColor,
-                        onClick = { isNowPlayingFullScreen = true }
-                    )
-                }
-
-                BottomNavBar(
-                    selectedTab = selectedNavTab,
-                    onSelectTab = { tab ->
-                        if (tab == 3 && currentSong != null) {
-                            isNowPlayingFullScreen = true
-                        } else {
-                            selectedNavTab = tab
-                        }
-                    },
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+        ) {
+            // Show Mini-Player Pill only when not on the full Now Playing screen
+            if (currentSong != null && selectedNavTab != 3) {
+                MiniPlayerPill(
+                    song = currentSong!!,
+                    player = player,
+                    repository = repository,
                     accentColor = accentColor,
-                    hasActiveSong = currentSong != null
+                    onClick = { navigateTo(3) }
                 )
             }
+
+            BottomNavBar(
+                selectedTab = selectedNavTab,
+                onSelectTab = { tab -> navigateTo(tab) },
+                accentColor = accentColor,
+                hasActiveSong = currentSong != null
+            )
         }
 
         // --- Settings Dialog ---

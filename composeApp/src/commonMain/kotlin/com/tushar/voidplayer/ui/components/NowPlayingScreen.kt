@@ -100,8 +100,7 @@ fun NowPlayingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 84.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // --- Top Bar ---
