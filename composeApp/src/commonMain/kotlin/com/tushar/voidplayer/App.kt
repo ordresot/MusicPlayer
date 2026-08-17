@@ -27,6 +27,7 @@ import com.tushar.voidplayer.player.AudioPlayer
 import com.tushar.voidplayer.ui.theme.*
 import com.tushar.voidplayer.ui.components.*
 import com.tushar.voidplayer.utils.AiCategorizer
+import com.tushar.voidplayer.utils.AiEngine
 import kotlinx.coroutines.launch
 
 // ------------------------------------------------------------------
@@ -118,14 +119,17 @@ fun MainContent(
     var searchQuery by remember { mutableStateOf("") }
     val currentSong by player.currentSong.collectAsState()
     val error by player.error.collectAsState()
-    var isExpanded by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
-    // 0 = Tracks, 1 = AI Categories, 2 = Playlists
-    var mainNavTab by remember { mutableStateOf(0) }
+    // 0 = Library, 1 = AI Hub, 2 = Playlists, 3 = Now Playing
+    var selectedNavTab by remember { mutableStateOf(0) }
+    var isNowPlayingFullScreen by remember { mutableStateOf(false) }
+
+    // AI DJ Flow Toggle
+    var isAiDjFlowEnabled by remember { mutableStateOf(false) }
 
     // Load songs & playlists whenever the picked folder changes
     LaunchedEffect(pickedFolderUri.value) {
@@ -193,7 +197,8 @@ fun MainContent(
             if (searchQuery.isNotBlank()) {
                 list = list.filter {
                     it.title.contains(searchQuery, ignoreCase = true) ||
-                    it.artist.contains(searchQuery, ignoreCase = true)
+                    it.artist.contains(searchQuery, ignoreCase = true) ||
+                    it.album.contains(searchQuery, ignoreCase = true)
                 }
             }
             when (sortOrder) {
@@ -212,63 +217,21 @@ fun MainContent(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Header(
-                onPickFolder = onPickFolder,
-                onOpenSettings = { showSettings = true },
-                searchQuery = searchQuery,
-                onSearchCb = { searchQuery = it }
-            )
-
-            // --- Top Navigation Tabs: Tracks | AI Categories | Playlists ---
-            TabRow(
-                selectedTabIndex = mainNavTab,
-                containerColor = Color.Transparent,
-                contentColor = accentColor,
-                divider = {}
-            ) {
-                Tab(
-                    selected = mainNavTab == 0,
-                    onClick = { mainNavTab = 0 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.MusicNote, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Tracks (${songs.size})", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                    }
-                )
-                Tab(
-                    selected = mainNavTab == 1,
-                    onClick = { mainNavTab = 1 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("AI Categories", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                    }
-                )
-                Tab(
-                    selected = mainNavTab == 2,
-                    onClick = { mainNavTab = 2 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.PlaylistPlay, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Playlists (${playlists.size})", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                    }
+            if (selectedNavTab != 3 && !isNowPlayingFullScreen) {
+                Header(
+                    onPickFolder = onPickFolder,
+                    onOpenSettings = { showSettings = true },
+                    searchQuery = searchQuery,
+                    onSearchCb = { searchQuery = it }
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // --- Sub-filters for Tracks tab ---
-            if (mainNavTab == 0) {
+            // --- Sub-filters for Library tab ---
+            if (selectedNavTab == 0 && !isNowPlayingFullScreen) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -326,7 +289,7 @@ fun MainContent(
                 error?.let { ErrorBanner(it) }
             }
 
-            // --- Content area ---
+            // --- Main Content Area ---
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 when {
                     isLoading -> {
@@ -335,16 +298,23 @@ fun MainContent(
                         }
                     }
                     songs.isEmpty() -> EmptyState(onPickFolder, statusMessage)
-                    mainNavTab == 1 -> {
-                        AiCategoriesScreen(
+
+                    // Tab 1: AI Hub Screen
+                    selectedNavTab == 1 -> {
+                        AiHubScreen(
+                            songs = songs,
                             categories = aiCategories,
                             player = player,
                             repository = repository,
                             accentColor = accentColor,
+                            isAiDjFlowEnabled = isAiDjFlowEnabled,
+                            onToggleAiDjFlow = { isAiDjFlowEnabled = it },
                             onToggleFavorite = ::onToggleFavorite
                         )
                     }
-                    mainNavTab == 2 -> {
+
+                    // Tab 2: Playlists Screen
+                    selectedNavTab == 2 -> {
                         PlaylistsScreen(
                             playlists = playlists,
                             allSongs = songs,
@@ -356,6 +326,30 @@ fun MainContent(
                             onToggleFavorite = ::onToggleFavorite
                         )
                     }
+
+                    // Tab 3: Dedicated Now Playing Screen
+                    selectedNavTab == 3 || isNowPlayingFullScreen -> {
+                        if (currentSong != null) {
+                            NowPlayingScreen(
+                                song = currentSong!!,
+                                player = player,
+                                repository = repository,
+                                accentColor = accentColor,
+                                onMinimize = {
+                                    isNowPlayingFullScreen = false
+                                    if (selectedNavTab == 3) selectedNavTab = 0
+                                },
+                                onOpenSettings = { showSettings = true },
+                                onToggleFavorite = ::onToggleFavorite
+                            )
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No track currently playing\nSelect a song from Library to begin", color = SecondaryText, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            }
+                        }
+                    }
+
+                    // Tab 0: Library Screen
                     filteredSongs.isEmpty() -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
@@ -390,20 +384,39 @@ fun MainContent(
             }
         }
 
-        // --- Player island ---
-        if (currentSong != null) {
-            DynamicIsland(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                song = currentSong!!,
-                player = player,
-                repository = repository,
-                isExpanded = isExpanded,
-                accentColor = accentColor,
-                onToggleExpand = { isExpanded = !isExpanded },
-                onToggleFavorite = ::onToggleFavorite
-            )
+        // --- Bottom Area: Mini-Player Pill + Bottom Navigation Bar ---
+        if (!isNowPlayingFullScreen && selectedNavTab != 3) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+            ) {
+                if (currentSong != null) {
+                    MiniPlayerPill(
+                        song = currentSong!!,
+                        player = player,
+                        repository = repository,
+                        accentColor = accentColor,
+                        onClick = { isNowPlayingFullScreen = true }
+                    )
+                }
+
+                BottomNavBar(
+                    selectedTab = selectedNavTab,
+                    onSelectTab = { tab ->
+                        if (tab == 3 && currentSong != null) {
+                            isNowPlayingFullScreen = true
+                        } else {
+                            selectedNavTab = tab
+                        }
+                    },
+                    accentColor = accentColor,
+                    hasActiveSong = currentSong != null
+                )
+            }
         }
 
+        // --- Settings Dialog ---
         if (showSettings) {
             AudioSettingsScreen(
                 onDismiss = { showSettings = false },
