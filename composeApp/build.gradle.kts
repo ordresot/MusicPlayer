@@ -117,6 +117,7 @@ compose.desktop {
             packageVersion = "2.2.0"
             description = "Void Player - Modern Hi-Fi Music Player"
             vendor = "Tushar"
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("src/desktopMain/resources"))
 
             windows {
                 iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
@@ -124,6 +125,8 @@ compose.desktop {
                 upgradeUuid = "6f851dae-bf7d-45db-9c3f-c967f401ad89"
                 shortcut = true
                 menu = true
+                dirChooser = true
+                perUserInstall = false
             }
         }
     }
