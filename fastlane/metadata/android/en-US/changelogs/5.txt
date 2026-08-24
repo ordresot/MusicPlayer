@@ -1,6 +1,10 @@
-- Added persistent favorites and playlist support across restarts
-- Added real-time synchronized LRC lyrics viewer with auto-scroll
-- Added playback speed controls (0.5x - 2.0x) in audio settings
-- Added gentle volume fade-out for Sleep Timer
-- Added live queue bottom sheet to view and jump between upcoming tracks
+- Added sleek Bottom Navigation Bar (Library, AI Hub, Playlists, Now Playing)
+- Added dedicated full-screen Now Playing screen with album art gradient & swipe gestures
+- Added Void AI Insights ("My Vibe Wrapped") and AI DJ Smart Flow
+- Added AI Smart Categorization for automatic mood/vibe playlists
+- Added Hi-Res Audio Codec Badge & Inspector (FLAC 24-bit/96kHz, WAV, AAC, 320kbps MP3)
+- Added synchronized LRC lyrics viewer with auto-scroll and tap-to-seek
+- Added persistent custom playlists & favorites across restarts
+- Added playback speed controls (0.5x - 2.0x) and gentle volume fade-out Sleep Timer
+- Added smart system back button navigation stack
 - Performance optimizations and memory safety improvements

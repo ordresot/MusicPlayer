@@ -1,29 +1,66 @@
 # 🎵 Void Player
 
+<div align="center">
+
+[![F-Droid](https://img.shields.io/f-droid/v/com.tushar.voidplayer?style=for-the-badge&logo=fdroid&logoColor=white)](https://f-droid.org/en/packages/com.tushar.voidplayer/)
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 ![Compose](https://img.shields.io/badge/Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
-![Version](https://img.shields.io/badge/version-2.2-blue?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)
 
-A modern, high-performance, privacy-focused music player built with **Kotlin Multiplatform** and **Compose Multiplatform** targeting Android and Windows Desktop. 100% Free & Open Source (FOSS) with zero ads, tracking, or telemetry.
+**A modern, high-fidelity, privacy-first local music player built with Kotlin Multiplatform & Jetpack Compose.**  
+*100% Free & Open Source (FOSS) • Zero Ads • Zero Trackers • Zero Telemetry • 100% Offline*
+
+[**Download on F-Droid**](https://f-droid.org/en/packages/com.tushar.voidplayer/) • [**Download APK (GitHub Releases)**](https://github.com/TUSHAR91316/Void-Player/releases/latest)
+
+</div>
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-- 🎨 **Dynamic UI Theming**: Automatically extracts dominant colors from album covers to create immersive backgrounds and UI accents via asynchronous coroutine processing.
-- ✨ **AI Smart Categorization**: Automatically analyzes your music collection metadata to group songs into intelligent mood and vibe collections (Night Vibes, High Energy, Deep Focus, Romance, Quick Hits, and Artist Spotlights).
-- 📁 **Custom Playlists & Favorites**: Create and manage custom playlists and favorite tracks, fully persisted locally across app restarts.
-- 📜 **Interactive Synced LRC Lyrics**: Automatic local `.lrc` file detection with real-time timestamp synchronization, active line accent highlighting, smooth auto-scrolling, and tap-to-seek.
-- 📱 **Interactive Player Island**: A polished mini-player overlay that mimics a "Dynamic Island", smoothly expanding into a full-screen experience with physics-based spring animations.
-- ⚡ **Playback Speed Controller**: Adjust tempo from `0.5x` to `2.0x` with native ExoPlayer pitch correction.
-- 🌙 **Gentle Sleep Timer**: Automatically pause playback with optional 20-second volume fade-out so you drift off peacefully.
-- 📋 **Live Queue Viewer**: View and jump between upcoming tracks in your playlist queue directly from the full-screen player.
-- 🎵 **System Overlay Service**: Control your music from anywhere on Android via a floating system-wide Compose widget.
-- 🧠 **Adaptive Memory Architecture**: Hardware-aware LRU image caches ensure buttery-smooth 60fps scrolling on both 2GB budget phones and 12GB flagships.
-- 🎧 **Hardware Equalizer & Normalization**: Full multi-band equalizer and dynamic real-time normalization via Android's `DynamicsProcessing` DSP chip.
-- 🔊 **Auto-Pause & Audio Focus**: Seamlessly pauses playback when headphones/Bluetooth disconnect or incoming calls take focus.
-- 🖥️ **Desktop Native Support**: Fully functional on Windows Desktop with portable standalone `.exe` and `.msi` installers.
+### 🧭 1. Modern Bottom Navigation & Mini-Player Pill
+- **Persistent Bottom Navigation**: Seamlessly navigate between 4 dedicated spaces:
+  - 🎵 **Library**: All tracks, favorites, search, sorting, and folder picker.
+  - ✨ **AI Hub**: Void AI insights, AI DJ Flow, and smart mood collections.
+  - 📁 **Playlists**: Custom playlist creation and management.
+  - 💿 **Now Playing**: Dedicated full-screen player experience.
+- **Floating Mini-Player Pill**: Sits smoothly above navigation with live thin progress indicator, transport controls, and tap-to-expand.
+
+### 💿 2. Dedicated Full-Screen Now Playing Screen
+- **Dynamic Palette Background**: Vertical immersive gradient extracted asynchronously from album artwork.
+- **Gesture Controls**: Swipe left/right on cover art to skip tracks; swipe down or press back to minimize.
+- **Interactive Multi-Mode Drawer**:
+  - 💿 **Cover**: High-resolution album artwork view.
+  - 📜 **Synced LRC Lyrics**: Real-time synchronized lyrics with active line highlighting and tap-to-seek.
+  - 📋 **Live Queue**: Next-up track list with 1-tap jump.
+  - ⚡ **Speed & Timer**: `0.5x` to `2.0x` pitch-corrected speed and Gentle Sleep Timer.
+
+### 🧠 3. Void AI Hub & Smart Music Intelligence
+- **📊 Void AI Insights ("My Vibe Wrapped")**:
+  - Computes your library's musical personality (e.g. *"The Midnight Wanderer"*, *"The High-Drive Dynamo"*, *"The Deep Focus Architect"*).
+  - Vibe breakdown percentages and total library listening duration.
+  - AI-recommended hardware equalizer curves.
+- **🎧 AI DJ Smart Flow**:
+  - Intelligently analyzes acoustic energy and mood vectors of the active track to automatically queue the smoothest transitioning next song.
+- **✨ AI Smart Categorization**:
+  - Automatically groups local tracks into mood collections: *Night Vibes & Lo-Fi*, *High Energy*, *Deep Focus*, *Romance & Melodic*, *Quick Hits (<2.5m)*, *Extended Epics*, and *Artist Spotlights*.
+
+### 🎚️ 4. Hi-Res Audio Codec Badge & Inspector
+- **Lossless & Hi-Res Detection**: Automatically identifies `✨ Hi-Res FLAC` (24-bit/96kHz), `✨ Hi-Res WAV`, `🎵 AAC HD`, `🎵 OPUS HD`, and `🎵 320 kbps MP3`.
+- **Interactive Codec Inspector**: Tap the badge to inspect sample rates, bitrates, lossless compression, and file details.
+
+### 💾 5. Persistent Playlists & Favorites
+- Custom playlists and favorite tracks are saved locally and restored automatically across app restarts.
+- 1-tap **"Add to Playlist"** from any song's options menu.
+
+### 🎧 6. Audiophile DSP Engine
+- **Hardware Equalizer**: Multi-band EQ with custom levels.
+- **Dynamic Normalization**: Real-time loudness normalization powered by Android `DynamicsProcessing` DSP.
+- **Audio Focus & Auto-Pause**: Seamlessly pauses when headphones/Bluetooth disconnect or phone calls arrive.
+
+### 🖥️ 7. Windows Desktop Native Support
+- Native desktop experience with Windows Setup Wizard (`.msi`) and portable standalone executable (`VoidPlayer.exe`) with local folder scanning and audio engine.
 
 ---
 
@@ -31,61 +68,55 @@ A modern, high-performance, privacy-focused music player built with **Kotlin Mul
 
 | Layer | Technology |
 |---|---|
-| **Language** | Kotlin (100% pure KMP) |
+| **Language** | Kotlin (100% Kotlin Multiplatform) |
 | **UI Framework** | Jetpack Compose Multiplatform (Material 3) |
-| **Audio Engine** | Media3 ExoPlayer |
-| **State Management** | MVVM with `StateFlow` + `collectAsState` |
+| **Audio Engine** | AndroidX Media3 (ExoPlayer) / Java Sound SPI |
+| **State Architecture** | MVVM with `StateFlow` + `collectAsState` |
 | **Build System** | Gradle (KMP) with JDK 21 |
-| **Min / Target SDK** | Android 8.0 (API 26) / Android 14 (API 34) |
+| **Compatibility** | Android 8.0+ (API 26 to API 35) & Windows 10/11 |
 
 ---
 
-## 🚀 Getting Started
+## 📥 Installation
 
-### Build & Run
+### 📱 Android
+- **F-Droid**: [com.tushar.voidplayer on F-Droid](https://f-droid.org/en/packages/com.tushar.voidplayer/)
+- **Direct APK**: Download the signed APK from [GitHub Releases](https://github.com/TUSHAR91316/Void-Player/releases/latest).
 
-**Android (Debug):**
+### 🖥️ Windows Desktop
+- **MSI Installer**: Download `VoidPlayer-2.2.0.msi` from GitHub Releases for seamless installation with Desktop and Start Menu shortcuts.
+- **Portable App**: Download and run `VoidPlayer.exe` directly without installation.
+
+---
+
+## 🚀 Building From Source
+
 ```bash
+# Clone the repository
+git clone https://github.com/TUSHAR91316/Void-Player.git
+cd Void-Player
+
+# Build & Run Android (Debug)
 ./gradlew :composeApp:installDebug
-```
 
-**Android (Release APK):**
-```bash
+# Build Android Signed Release APK
 ./gradlew :composeApp:assembleRelease
-```
 
-**Desktop (Run locally):**
-```bash
+# Run Desktop Application
 ./gradlew :composeApp:run
-```
 
-**Desktop (Package Standalone .exe / .msi):**
-```bash
-./gradlew :composeApp:createDistributable
-./gradlew :composeApp:packageMsi
+# Package Desktop MSI Installer & Standalone Executable
+./gradlew :composeApp:packageMsi :composeApp:createDistributable
 ```
 
 ---
 
-## 📂 Project Structure
+## 🔒 Privacy & Freedom
 
-```
-composeApp/
-├── commonMain/          # Shared UI, models, utilities & interfaces
-│   ├── App.kt           # Root composable & Navigation Tabs
-│   ├── model/           # Song, Playlist, AiCategory
-│   ├── player/          # Platform-agnostic AudioPlayer interface
-│   ├── data/            # SongRepository interface
-│   ├── utils/           # AiCategorizer, LrcParser, SleepTimer, ImageCache
-│   └── ui/components/   # PlayerIsland, AiCategoriesScreen, PlaylistsScreen, etc.
-├── androidMain/         # Android Media3 & SAF implementations
-│   ├── MainActivity.kt
-│   ├── VoidPlayerApp.kt
-│   ├── player/AndroidAudioPlayer.kt
-│   ├── service/OverlayService.kt
-│   └── data/AndroidSongRepository.kt
-└── desktopMain/         # Desktop JVM implementations & entrypoint
-```
+Void Player is built on the philosophy of user freedom and privacy:
+- **No Internet Required**: 100% of audio parsing, playback, metadata extraction, and AI categorization runs strictly locally on your device.
+- **Zero Telemetry**: No crash reporting frameworks, no third-party trackers, no advertisements.
+- **Zero Accounts**: No registration or login required.
 
 ---
 

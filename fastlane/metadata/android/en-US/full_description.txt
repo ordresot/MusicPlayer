@@ -1,14 +1,19 @@
-<p>VoidPlayer is a premium, open-source local music player for Android, crafted with Kotlin Multiplatform and Jetpack Compose.</p>
+<p>Void Player is a premium, open-source local music player for Android, crafted with Kotlin Multiplatform and Jetpack Compose.</p>
 
-<p>It is designed with a heavy emphasis on modern UI aesthetics, dynamic colors, and buttery smooth performance, without any ads, trackers, or hidden analytics.</p>
+<p>Designed with a heavy emphasis on modern UI aesthetics, dynamic colors, and buttery smooth performance, without any ads, trackers, or hidden analytics.</p>
 
-<p><b>Features:</b></p>
+<p><b>Key Features:</b></p>
 <ul>
-  <li>Completely Free and Open Source (FOSS)</li>
-  <li>Gorgeous UI with Dynamic Colors extracted from your album art</li>
-  <li>Dynamic Island Player Overlay (access your music from anywhere)</li>
-  <li>Media3 ExoPlayer Engine for high-fidelity audio</li>
-  <li>Battery-efficient local file scanning</li>
-  <li>Built-in Equalizer</li>
-  <li>No telemetry, no ads, completely private</li>
+  <li><b>100% Free & Open Source:</b> No ads, no trackers, no telemetry, completely offline.</li>
+  <li><b>Bottom Navigation Bar:</b> Sleek navigation with Library, AI Hub, Playlists, and Now Playing.</li>
+  <li><b>Dedicated Now Playing Screen:</b> Dynamic gradient extracted from album art with swipe gestures.</li>
+  <li><b>Void AI Insights:</b> Analyzes your library to discover your musical personality, vibe breakdown, and recommended EQ.</li>
+  <li><b>AI DJ Smart Flow:</b> Predicts and queues smooth-transitioning next tracks based on tempo and mood.</li>
+  <li><b>AI Smart Categorization:</b> Automatically organizes tracks into Night Vibes, High Energy, Deep Focus, Romance, and Quick Hits.</li>
+  <li><b>Hi-Res Audio Codec Inspector:</b> Detects FLAC (24-bit/96kHz), WAV, AAC, and 320kbps MP3 with interactive details.</li>
+  <li><b>Synchronized LRC Lyrics:</b> Real-time lyrics viewer with auto-scroll and tap-to-seek.</li>
+  <li><b>Persistent Playlists & Favorites:</b> Save and restore playlists and favorite tracks across restarts.</li>
+  <li><b>Playback Speed & Sleep Timer:</b> 0.5x to 2.0x speed controls and gentle volume fade-out timer.</li>
+  <li><b>Hardware Equalizer & DSP:</b> Multi-band EQ and real-time loudness normalization via Android DynamicsProcessing.</li>
+  <li><b>Live Queue:</b> View and jump between upcoming tracks directly in the player.</li>
 </ul>
