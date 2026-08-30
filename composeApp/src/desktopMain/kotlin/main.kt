@@ -11,9 +11,11 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import uk.co.caprica.vlcj.factory.MediaPlayerFactory
+import uk.co.caprica.vlcj.player.base.MediaPlayer
+import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
 import java.io.File
 import java.util.Properties
-import javax.sound.sampled.*
 import javax.swing.JFileChooser
 import javax.swing.UIManager
 
@@ -245,22 +247,22 @@ class DesktopSongRepository : SongRepository {
     }
 
     private fun estimateAudioDuration(file: File): Long {
-        return try {
-            val audioInputStream = AudioSystem.getAudioInputStream(file)
-            val format = audioInputStream.format
-            val frames = audioInputStream.frameLength
-            val durationInSeconds = (frames / format.frameRate).toDouble()
-            (durationInSeconds * 1000).toLong().coerceAtLeast(60000L)
-        } catch (_: Throwable) {
-            // Fallback estimation from file length (~1MB ~ 1 minute)
-            val approxSecs = (file.length() / (128 * 1024 / 8)).coerceIn(30, 600)
-            approxSecs * 1000L
-        }
+        // Java Sound SPI only supports WAV/AIFF — for MP3/FLAC/etc. we estimate
+        // from file size using typical bitrate ranges.
+        // Average bitrate ~192 kbps = 24 KB/s
+        val avgBytesPerSec = 192 * 1024 / 8 // 24 KB/s
+        val approxSecs = (file.length() / avgBytesPerSec.toDouble()).coerceIn(15.0, 1800.0)
+        return (approxSecs * 1000).toLong()
     }
 }
 
 class DesktopAudioPlayer : AudioPlayer {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    // vlcj: full-featured media player backed by LibVLC
+    // Supports MP3, FLAC, OGG, AAC, OPUS, WMA, M4A, WAV and many more
+    private val mediaPlayerFactory = MediaPlayerFactory()
+    private val mediaPlayer: MediaPlayer = mediaPlayerFactory.mediaPlayers().newMediaPlayer()
 
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -290,8 +292,40 @@ class DesktopAudioPlayer : AudioPlayer {
     override val currentQueue: StateFlow<List<Song>> = _currentQueue.asStateFlow()
 
     private var currentPlaylist: List<Song> = emptyList()
-    private var clip: Clip? = null
     private var positionJob: Job? = null
+
+    init {
+        // Listen to playback events for proper UI updates
+        mediaPlayer.events().addMediaPlayerEventListener(
+            object : MediaPlayerEventAdapter() {
+                override fun playing(player: MediaPlayer) {
+                    _isPlaying.value = true
+                    startPositionTracker()
+                }
+
+                override fun paused(player: MediaPlayer) {
+                    _isPlaying.value = false
+                    positionJob?.cancel()
+                }
+
+                override fun stopped(player: MediaPlayer) {
+                    _isPlaying.value = false
+                    positionJob?.cancel()
+                }
+
+                override fun finished(player: MediaPlayer) {
+                    positionJob?.cancel()
+                    handleSongCompletion()
+                }
+
+                override fun error(player: MediaPlayer) {
+                    _isPlaying.value = false
+                    positionJob?.cancel()
+                    _error.value = "Playback Error"
+                }
+            }
+        )
+    }
 
     override fun setPlaylist(songs: List<Song>) {
         currentPlaylist = songs
@@ -302,6 +336,7 @@ class DesktopAudioPlayer : AudioPlayer {
         cleanUp()
         _currentSong.value = song
         _currentPosition.value = 0L
+        _error.value = null
 
         try {
             val file = File(song.uri)
@@ -310,30 +345,13 @@ class DesktopAudioPlayer : AudioPlayer {
                 return
             }
 
-            val inStream = AudioSystem.getAudioInputStream(file)
-            val baseFormat = inStream.format
-            val decodedFormat = AudioFormat(
-                AudioFormat.Encoding.PCM_SIGNED,
-                baseFormat.sampleRate,
-                16,
-                baseFormat.channels,
-                baseFormat.channels * 2,
-                baseFormat.sampleRate,
-                false
-            )
-            val decodedStream = AudioSystem.getAudioInputStream(decodedFormat, inStream)
-
-            clip = AudioSystem.getClip().apply {
-                open(decodedStream)
-                start()
-            }
-            _isPlaying.value = true
-            _error.value = null
+            // vlcj handles ALL formats natively via LibVLC
+            // media().play(path) prepares and starts playback
+            mediaPlayer.media().play(file.absolutePath)
             startPositionTracker()
         } catch (e: Throwable) {
-            // Fallback for formats not directly decoded by standard Java Sound SPI
-            _isPlaying.value = true
-            startSimulatedPositionTracker(song.duration)
+            _error.value = "Playback Error: ${e.message}"
+            _isPlaying.value = false
         }
     }
 
@@ -342,28 +360,13 @@ class DesktopAudioPlayer : AudioPlayer {
         positionJob = scope.launch {
             while (_isPlaying.value) {
                 delay(300)
-                val c = clip
-                if (c != null && c.isOpen) {
-                    _currentPosition.value = c.microsecondPosition / 1000
-                    if (!c.isRunning && _currentPosition.value >= (_currentSong.value?.duration ?: 0L) - 1000) {
-                        handleSongCompletion()
-                        break
-                    }
-                }
-            }
-        }
-    }
-
-    private fun startSimulatedPositionTracker(duration: Long) {
-        positionJob?.cancel()
-        positionJob = scope.launch {
-            while (_isPlaying.value) {
-                delay(500)
-                val nextPos = _currentPosition.value + 500
-                _currentPosition.value = nextPos
-                if (duration > 0 && nextPos >= duration) {
-                    handleSongCompletion()
-                    break
+                try {
+                    // status().time() returns current position in ms
+                    // status().length() returns total duration in ms
+                    val time = mediaPlayer.status().time()
+                    _currentPosition.value = time
+                } catch (e: Throwable) {
+                    // Player might not be ready yet
                 }
             }
         }
@@ -385,37 +388,47 @@ class DesktopAudioPlayer : AudioPlayer {
     }
 
     override fun pause() {
-        clip?.stop()
-        _isPlaying.value = false
+        mediaPlayer.controls().pause()
         positionJob?.cancel()
     }
 
     override fun resume() {
-        clip?.start()
-        _isPlaying.value = true
+        mediaPlayer.controls().play()
         startPositionTracker()
     }
 
     override fun next() {
         if (currentPlaylist.isEmpty()) return
-        val nextSong = if (_isShuffle.value) {
-            currentPlaylist.randomOrNull()
+
+        val currentId = _currentSong.value?.id
+        if (_isShuffle.value) {
+            val candidates = currentPlaylist.filter { it.id != currentId }
+            val nextSong = candidates.randomOrNull() ?: currentPlaylist.randomOrNull()
+            nextSong?.let { play(it) }
         } else {
-            val idx = currentPlaylist.indexOfFirst { it.id == _currentSong.value?.id }
-            if (idx >= 0 && idx < currentPlaylist.size - 1) currentPlaylist[idx + 1] else currentPlaylist.firstOrNull()
+            val idx = currentPlaylist.indexOfFirst { it.id == currentId }
+            val nextIdx = if (idx >= 0 && idx < currentPlaylist.size - 1) idx + 1 else 0
+            currentPlaylist.getOrNull(nextIdx)?.let { play(it) }
         }
-        nextSong?.let { play(it) }
     }
 
     override fun previous() {
         if (currentPlaylist.isEmpty()) return
-        val prevSong = if (_isShuffle.value) {
-            currentPlaylist.randomOrNull()
-        } else {
-            val idx = currentPlaylist.indexOfFirst { it.id == _currentSong.value?.id }
-            if (idx > 0) currentPlaylist[idx - 1] else currentPlaylist.lastOrNull()
+
+        val currentId = _currentSong.value?.id
+        if (_currentPosition.value > 3000) {
+            _currentSong.value?.let { play(it) }
+            return
         }
-        prevSong?.let { play(it) }
+
+        if (_isShuffle.value) {
+            val prevSong = currentPlaylist.randomOrNull()
+            prevSong?.let { play(it) }
+        } else {
+            val idx = currentPlaylist.indexOfFirst { it.id == currentId }
+            val prevIdx = if (idx > 0) idx - 1 else currentPlaylist.size - 1
+            currentPlaylist.getOrNull(prevIdx)?.let { play(it) }
+        }
     }
 
     override fun toggleShuffle() {
@@ -431,27 +444,26 @@ class DesktopAudioPlayer : AudioPlayer {
     }
 
     override fun seekTo(position: Long) {
+        mediaPlayer.controls().setTime(position)
         _currentPosition.value = position
-        clip?.let {
-            it.microsecondPosition = position * 1000
-        }
     }
 
     override fun seekForward(millis: Long) {
-        seekTo((_currentPosition.value + millis).coerceAtMost(_currentSong.value?.duration ?: 0L))
+        val newPos = (_currentPosition.value + millis).coerceAtMost(_currentSong.value?.duration ?: 0L)
+        seekTo(newPos)
     }
 
     override fun seekBackward(millis: Long) {
-        seekTo((_currentPosition.value - millis).coerceAtLeast(0L))
+        val newPos = (_currentPosition.value - millis).coerceAtLeast(0L)
+        seekTo(newPos)
     }
 
     override fun cleanUp() {
         positionJob?.cancel()
+        positionJob = null
         try {
-            clip?.stop()
-            clip?.close()
+            mediaPlayer.controls().stop()
         } catch (_: Throwable) {}
-        clip = null
         _isPlaying.value = false
     }
 
@@ -459,17 +471,21 @@ class DesktopAudioPlayer : AudioPlayer {
     override fun resetEqualizer() {}
     override fun toggleNormalization() {}
     override fun updateSongArt(songId: Long, art: ByteArray) {}
-    override fun setPlaybackSpeed(speed: Float) { _playbackSpeed.value = speed }
+
+    override fun setPlaybackSpeed(speed: Float) {
+        val safeSpeed = speed.coerceIn(0.25f, 3.0f)
+        _playbackSpeed.value = safeSpeed
+        try {
+            mediaPlayer.controls().setRate(safeSpeed)
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
+
     override fun setVolume(volume: Float) {
         try {
-            clip?.let {
-                if (it.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
-                    val gainControl = it.getControl(FloatControl.Type.MASTER_GAIN) as FloatControl
-                    val range = gainControl.maximum - gainControl.minimum
-                    val gain = (range * volume) + gainControl.minimum
-                    gainControl.value = gain.coerceIn(gainControl.minimum, gainControl.maximum)
-                }
-            }
+            val vlcVolume = (volume * 200).toInt().coerceIn(0, 200)
+            mediaPlayer.audio().setVolume(vlcVolume.toInt())
         } catch (_: Throwable) {}
     }
 }
