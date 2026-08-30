@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalCoroutinesApi::class)
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.Window
@@ -11,6 +13,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import uk.co.caprica.vlcj.factory.MediaPlayerFactory
 import uk.co.caprica.vlcj.player.base.MediaPlayer
 import uk.co.caprica.vlcj.player.base.MediaPlayerEventAdapter
@@ -87,6 +90,15 @@ class DesktopSongRepository : SongRepository {
     private val dataDir = File(System.getProperty("user.home"), ".voidplayer").apply { mkdirs() }
     private val prefsFile = File(dataDir, "preferences.properties")
     private val playlistsFile = File(dataDir, "playlists.properties")
+
+    // Shared vlcj factory — created once, reused for all duration probes
+    private val probeFactory = MediaPlayerFactory()
+
+    // Concurrency limit: 4 parallel probes is a sweet spot.
+    // - HDD: >4 causes random-seek thrashing
+    // - SSD: 4-8 is safe; >8 gives diminishing returns (LibVLC parsing bottleneck)
+    // - Each probe allocates native LibVLC resources; 4 keeps memory footprint low
+    private val probeDispatcher = Dispatchers.IO.limitedParallelism(8)
 
     fun getLastUsedFolder(): String? {
         if (!prefsFile.exists()) return null
@@ -182,7 +194,19 @@ class DesktopSongRepository : SongRepository {
             audioFiles.add(it)
         }
 
+        if (audioFiles.isEmpty()) return@withContext emptyList()
+
         val favs = getFavorites()
+
+        // Probe all durations in parallel — limitedParallelism(4) controls concurrency
+        val durations = coroutineScope {
+            audioFiles.map { file ->
+                async(probeDispatcher) {
+                    file to estimateAudioDuration(file)
+                }
+            }.awaitAll().toMap()
+        }
+
         audioFiles.map { file ->
             val id = file.absolutePath.hashCode().toLong() and 0x7FFF_FFFF_FFFF_FFFFL
             val fileName = file.nameWithoutExtension
@@ -198,7 +222,7 @@ class DesktopSongRepository : SongRepository {
                 title = title,
                 artist = artist,
                 album = file.parentFile?.name ?: "Local Audio",
-                duration = estimateAudioDuration(file),
+                duration = durations[file] ?: 0L,
                 uri = file.absolutePath,
                 coverArt = null,
                 isFavorite = favs.contains(id.toString())
@@ -247,12 +271,49 @@ class DesktopSongRepository : SongRepository {
     }
 
     private fun estimateAudioDuration(file: File): Long {
-        // Java Sound SPI only supports WAV/AIFF — for MP3/FLAC/etc. we estimate
-        // from file size using typical bitrate ranges.
-        // Average bitrate ~192 kbps = 24 KB/s
-        val avgBytesPerSec = 192 * 1024 / 8 // 24 KB/s
-        val approxSecs = (file.length() / avgBytesPerSec.toDouble()).coerceIn(15.0, 1800.0)
-        return (approxSecs * 1000).toLong()
+        // Use vlcj to probe the actual duration — accurate for all formats
+        // Each call creates a short-lived player; the dispatcher limits concurrency
+        val factory = MediaPlayerFactory()
+        val player = factory.mediaPlayers().newMediaPlayer()
+        var duration = 0L
+
+        try {
+            val loaded = player.media().start(file.absolutePath)
+            if (loaded) {
+                // Wait for the media to be parsed and ready (max 2.5s)
+                var attempts = 0
+                while (player.status().isPlayable().not() && attempts < 50) {
+                    Thread.sleep(50)
+                    attempts++
+                }
+                if (player.status().isPlayable()) {
+                    duration = player.status().length()
+                }
+            }
+        } catch (_: Throwable) {
+            // Fallback below
+        } finally {
+            try { player.controls().stop() } catch (_: Throwable) {}
+            try { player.release() } catch (_: Throwable) {}
+            try { factory.release() } catch (_: Throwable) {}
+        }
+
+        // Fallback: estimate from file size if vlcj fails
+        if (duration <= 0) {
+            val ext = file.extension.lowercase()
+            val avgBytesPerSec = when (ext) {
+                "flac" -> 1200 * 1024 / 8  // ~1200 kbps for FLAC
+                "wav"  -> 1411 * 1024 / 8  // ~1411 kbps uncompressed
+                "ogg", "opus" -> 128 * 1024 / 8  // ~128 kbps
+                "aac", "m4a" -> 192 * 1024 / 8  // ~192 kbps
+                "wma"  -> 160 * 1024 / 8   // ~160 kbps
+                else -> 192 * 1024 / 8     // ~192 kbps MP3 default
+            }
+            val approxSecs = (file.length() / avgBytesPerSec.toDouble()).coerceIn(15.0, 1800.0)
+            duration = (approxSecs * 1000).toLong()
+        }
+
+        return duration
     }
 }
 
